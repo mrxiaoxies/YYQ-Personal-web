@@ -10,11 +10,13 @@ const navItems = [
   { label: "Reach Me", href: "#contact" }
 ];
 
+const assetUrl = (path: string) => `${import.meta.env.BASE_URL}${path}`;
+
 const seasonBackgrounds = [
-  { key: "spring", label: "Spring", image: "/images/seasons/spring.png" },
-  { key: "summer", label: "Summer", image: "/images/seasons/summer.png" },
-  { key: "autumn", label: "Autumn", image: "/images/seasons/autumn.png" },
-  { key: "winter", label: "Winter", image: "/images/seasons/winter.png" }
+  { key: "spring", label: "Spring", image: assetUrl("images/seasons/spring.png") },
+  { key: "summer", label: "Summer", image: assetUrl("images/seasons/summer.png") },
+  { key: "autumn", label: "Autumn", image: assetUrl("images/seasons/autumn.png") },
+  { key: "winter", label: "Winter", image: assetUrl("images/seasons/winter.png") }
 ];
 
 const codexProjects = [
@@ -457,7 +459,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
                 alt="微信二维码"
                 className="contact-qr-image"
                 onError={() => setQrImageReady(false)}
-                src="/images/wechat-contact.png"
+                src={assetUrl("images/wechat-contact.png")}
               />
             ) : (
               <div aria-label="微信二维码占位图" className="contact-qr-fallback" role="img">
