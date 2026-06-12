@@ -7,8 +7,9 @@ const config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ["Instrument Serif", "serif"],
-        body: ["Inter", "sans-serif"]
+        display: ["var(--font-display)"],
+        cjkDisplay: ["var(--font-cjk-display)"],
+        body: ["var(--font-body)"]
       },
       colors: {
         border: "hsl(var(--border))",

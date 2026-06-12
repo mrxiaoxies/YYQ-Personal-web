@@ -260,7 +260,7 @@ function SeasonReview() {
       <SeasonalForest season={season} />
 
       <nav className="relative z-20 mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <a className="text-3xl tracking-tight" href="/" style={{ fontFamily: "'Instrument Serif', serif" }}>
+        <a className="text-3xl tracking-tight" href="/" style={{ fontFamily: "var(--font-display)" }}>
           Yang Yeqi<sup className="text-xs">®</sup>
         </a>
         <div className="liquid-glass flex gap-2 rounded-full p-1.5">
@@ -279,7 +279,7 @@ function SeasonReview() {
 
       <section className="relative z-10 mx-auto flex min-h-[calc(100vh-96px)] max-w-6xl flex-col justify-center px-6 pb-24">
         <p className="max-w-xl text-sm uppercase tracking-[0.32em] text-white/58">{activeScene.weather}</p>
-        <h1 className="mt-5 max-w-3xl text-6xl font-normal leading-none sm:text-8xl" style={{ fontFamily: "'Instrument Serif', serif" }}>
+        <h1 className="mt-5 max-w-3xl text-6xl font-normal leading-none sm:text-8xl" style={{ fontFamily: "var(--font-display)" }}>
           {activeScene.label}
         </h1>
         <p className="mt-6 max-w-lg text-lg leading-relaxed text-white/64">
@@ -305,7 +305,7 @@ function SectionHeading({
       <p className="text-sm font-medium uppercase tracking-[0.28em] text-muted-foreground">{eyebrow}</p>
       <h2
         className="mt-4 text-4xl font-normal leading-none tracking-[-1.2px] text-foreground sm:text-6xl"
-        style={{ fontFamily: "'Instrument Serif', serif" }}
+        style={{ fontFamily: "var(--font-cjk-display)" }}
       >
         {title}
       </h2>
@@ -536,7 +536,7 @@ function App() {
         <a
           className="light-reactive-text text-3xl tracking-tight text-foreground"
           href="#home"
-          style={{ fontFamily: "'Instrument Serif', serif" }}
+          style={{ fontFamily: "var(--font-display)" }}
         >
           Yang Yeqi<sup className="text-xs">®</sup>
         </a>
@@ -574,8 +574,7 @@ function App() {
         <h1
           className="animate-fade-rise light-reactive-text mt-6 max-w-6xl text-5xl font-light leading-[1.08] tracking-[0.02em] sm:text-6xl md:text-7xl"
           style={{
-            fontFamily:
-              "'Instrument Serif', 'LXGW WenKai', 'STKaiti', 'KaiTi', 'Microsoft YaHei UI', serif"
+            fontFamily: "var(--font-cjk-display)"
           }}
         >
           <span className="block">把复杂流程</span>
@@ -617,7 +616,7 @@ function App() {
               </div>
               <h3
                 className="mt-8 text-4xl font-normal tracking-[-0.8px]"
-                style={{ fontFamily: "'Instrument Serif', serif" }}
+                style={{ fontFamily: "var(--font-cjk-display)" }}
               >
                 {project.title}
               </h3>
@@ -684,7 +683,7 @@ function App() {
                     className="company-title mt-3 text-3xl tracking-wide"
                     style={{
                       fontFamily:
-                        "'Inter', 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif",
+                        "var(--font-body)",
                       fontWeight: 900
                     }}
                   >
@@ -741,7 +740,7 @@ function App() {
           <p className="text-sm font-medium uppercase tracking-[0.28em] text-muted-foreground">Reach Me</p>
           <h2
             className="mt-5 text-5xl font-normal tracking-[-1.2px] sm:text-7xl"
-            style={{ fontFamily: "'Instrument Serif', serif" }}
+            style={{ fontFamily: "var(--font-cjk-display)" }}
           >
             上海市普陀区 · 杨烨齐
           </h2>

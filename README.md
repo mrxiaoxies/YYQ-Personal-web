@@ -4,7 +4,7 @@
 
 ## 项目状态
 
-- 当前版本：`0.1.0`
+- 当前版本：`0.1.1`
 - GitHub 仓库：`https://github.com/mrxiaoxies/YYQ-Personal-web`
 - 版本记录：见 [CHANGELOG.md](./CHANGELOG.md)
 - 操作文档：见 [docs/OPERATIONS.md](./docs/OPERATIONS.md)
