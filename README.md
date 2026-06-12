@@ -5,6 +5,7 @@
 ## 项目状态
 
 - 当前版本：`0.1.0`
+- GitHub 仓库：`https://github.com/mrxiaoxies/YYQ-Personal-web`
 - 版本记录：见 [CHANGELOG.md](./CHANGELOG.md)
 - 操作文档：见 [docs/OPERATIONS.md](./docs/OPERATIONS.md)
 
@@ -53,10 +54,10 @@ npm run preview
 
 ## GitHub 发布
 
-首次上传需要先在 GitHub 创建空仓库，然后在本地执行：
+首次上传到当前仓库：
 
 ```powershell
-git remote add origin https://github.com/<owner>/<repo>.git
+git remote add origin https://github.com/mrxiaoxies/YYQ-Personal-web.git
 git branch -M main
 git push -u origin main
 ```
