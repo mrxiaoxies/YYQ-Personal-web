@@ -1,0 +1,638 @@
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-display: "Instrument Serif", serif;
+    --font-body: "Inter", sans-serif;
+    --light-x: 28%;
+    --light-y: 18%;
+    --light-intensity: 0.78;
+    --background: 201 100% 13%;
+    --foreground: 0 0% 100%;
+    --muted-foreground: 0 1% 23%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 4%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 10%;
+    --accent: 0 0% 10%;
+    --accent-foreground: 0 0% 100%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 0 0% 100%;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    background: hsl(var(--background));
+    text-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.46),
+      0 0 18px rgba(3, 12, 18, 0.38);
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    text-shadow: inherit;
+  }
+
+}
+
+@layer components {
+  .liquid-glass {
+    background: rgba(255, 255, 255, 0.035);
+    background-blend-mode: luminosity;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: none;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    isolation: isolate;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .glass-panel {
+    border-radius: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow:
+      inset 0 1px 1px rgba(255, 255, 255, 0.12),
+      0 24px 80px rgba(0, 0, 0, 0.22);
+  }
+
+  .liquid-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.4px;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.45) 0%,
+      rgba(255, 255, 255, 0.15) 20%,
+      rgba(255, 255, 255, 0) 40%,
+      rgba(255, 255, 255, 0) 60%,
+      rgba(255, 255, 255, 0.15) 80%,
+      rgba(255, 255, 255, 0.45) 100%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .trace-light {
+    opacity: calc(var(--light-intensity) * 0.72);
+    will-change: background, opacity;
+  }
+
+  .trace-light-main {
+    animation: trace-light-drift 6.8s ease-in-out infinite;
+    background:
+      radial-gradient(
+        circle at var(--light-x) var(--light-y),
+        rgba(255, 244, 194, 0.48),
+        rgba(210, 227, 205, 0.2) 18%,
+        transparent 38%
+      ),
+      linear-gradient(
+        112deg,
+        transparent 0 14%,
+        rgba(255, 244, 192, 0.24) 19%,
+        rgba(222, 236, 212, 0.12) 31%,
+        transparent 45%
+      );
+    mix-blend-mode: screen;
+  }
+
+  .trace-light-soft {
+    animation: trace-light-drift 9.6s ease-in-out infinite reverse;
+    background:
+      radial-gradient(circle at calc(var(--light-x) + 10%) calc(var(--light-y) + 14%), rgba(185, 210, 194, 0.13), transparent 28%),
+      linear-gradient(118deg, transparent 19%, rgba(255, 245, 199, 0.08) 33%, transparent 50%);
+    filter: blur(10px);
+    mix-blend-mode: soft-light;
+  }
+
+  .light-reactive {
+    box-shadow:
+      inset 0 1px 1px rgba(255, 255, 255, 0.12),
+      inset 0 0 38px rgba(247, 237, 184, calc(var(--light-intensity) * 0.16)),
+      0 18px 72px rgba(0, 0, 0, 0.22);
+  }
+
+  .light-reactive::after {
+    background:
+      radial-gradient(
+        circle at var(--light-x) var(--light-y),
+        rgba(255, 246, 200, calc(var(--light-intensity) * 0.56)),
+        rgba(255, 246, 200, calc(var(--light-intensity) * 0.16)) 20%,
+        transparent 42%
+      ),
+      linear-gradient(112deg, transparent 12%, rgba(255, 246, 204, 0.16), transparent 46%);
+    border-radius: inherit;
+    content: "";
+    inset: 0;
+    mix-blend-mode: screen;
+    opacity: 0.62;
+    pointer-events: none;
+    position: absolute;
+    z-index: 0;
+  }
+
+  .light-reactive > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .light-reactive-text {
+    text-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.5),
+      0 0 calc(10px * var(--light-intensity)) rgba(255, 246, 205, 0.1),
+      0 0 26px rgba(244, 236, 198, calc(var(--light-intensity) * 0.22));
+    transition: text-shadow 120ms linear;
+  }
+
+  .company-title {
+    color: rgba(255, 255, 255, 0.96);
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.22),
+      0 2px 5px rgba(0, 0, 0, 0.58),
+      0 0 18px rgba(5, 13, 20, 0.4);
+    -webkit-text-stroke: 0.35px rgba(255, 255, 255, 0.28);
+  }
+
+  .forest-painting {
+    background-image: url("/images/pixel-forest-hero.png");
+    background-position: center;
+    background-size: cover;
+    filter: saturate(1.02) contrast(1.02);
+    image-rendering: pixelated;
+  }
+
+  .season-background {
+    background-position: center;
+    background-size: cover;
+    filter: saturate(1.04) contrast(1.02);
+    image-rendering: pixelated;
+    transform: scale(1.045);
+    transition:
+      opacity 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      filter 320ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
+  }
+
+  .season-background-spring {
+    filter: saturate(1.08) contrast(1.02) brightness(1.04);
+  }
+
+  .season-background-summer {
+    filter: saturate(1.16) contrast(1.04) brightness(0.98);
+  }
+
+  .season-background-autumn {
+    filter: saturate(1.12) contrast(1.06) brightness(0.97);
+  }
+
+  .season-background-winter {
+    filter: saturate(0.94) contrast(1.03) brightness(1.04);
+  }
+
+  .forest-depth {
+    image-rendering: pixelated;
+    background:
+      linear-gradient(90deg, rgba(4, 13, 20, 0.2), transparent 30% 70%, rgba(2, 8, 12, 0.34)),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.028) 0 2px, transparent 2px 7px),
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 2px, transparent 2px 7px);
+    mix-blend-mode: soft-light;
+  }
+
+  .forest-light {
+    animation: light-breathe 8s ease-in-out infinite;
+    background:
+      linear-gradient(116deg, transparent 5%, rgba(255, 244, 190, 0.13) 16%, rgba(224, 234, 206, 0.06) 27%, transparent 38%),
+      linear-gradient(112deg, transparent 18%, rgba(255, 244, 190, 0.1) 25%, transparent 36%);
+    filter: blur(0.2px);
+    mix-blend-mode: screen;
+  }
+
+  .forest-mist {
+    animation: mist-drift 18s ease-in-out infinite alternate;
+    background:
+      radial-gradient(ellipse at 30% 43%, rgba(217, 227, 214, 0.18), transparent 38%),
+      radial-gradient(ellipse at 46% 62%, rgba(155, 183, 182, 0.1), transparent 42%),
+      linear-gradient(0deg, rgba(4, 12, 18, 0.18), transparent 62%),
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 10px);
+    transform: translate3d(0, 0, 0);
+  }
+
+  .forest-vignette {
+    background:
+      radial-gradient(ellipse at 35% 42%, transparent 0 42%, rgba(2, 8, 12, 0.08) 78%, rgba(1, 5, 8, 0.24) 100%),
+      linear-gradient(0deg, rgba(2, 8, 12, 0.2), transparent 24%);
+  }
+
+  .forest-particle {
+    animation: particle-float var(--particle-duration) linear infinite;
+    background: rgba(244, 237, 188, 0.78);
+    box-shadow: 0 0 10px rgba(247, 238, 183, 0.22);
+    image-rendering: pixelated;
+  }
+
+  .contact-modal {
+    animation: modal-fade 0.24s ease-out both;
+  }
+
+  .contact-modal.is-closing {
+    animation: modal-fade-out 0.36s ease-in both;
+    pointer-events: none;
+  }
+
+  .contact-modal-backdrop {
+    background:
+      radial-gradient(circle at var(--light-x) var(--light-y), rgba(255, 244, 190, 0.22), transparent 34%),
+      rgba(2, 8, 12, 0.54);
+    backdrop-filter: blur(10px) saturate(1.08);
+    -webkit-backdrop-filter: blur(10px) saturate(1.08);
+  }
+
+  .contact-dialog {
+    animation: modal-rise 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow:
+      inset 0 1px 1px rgba(255, 255, 255, 0.15),
+      0 34px 120px rgba(0, 0, 0, 0.38);
+  }
+
+  .contact-modal.is-closing .contact-dialog {
+    animation: modal-fall 0.36s cubic-bezier(0.4, 0, 1, 1) both;
+  }
+
+  .contact-close {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    column-gap: 0;
+    color: rgba(255, 255, 255, 0.78);
+    line-height: 1;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.38);
+    transition:
+      background 0.2s ease,
+      color 0.2s ease,
+      transform 0.2s ease;
+  }
+
+  .contact-close:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.96);
+    transform: scale(1.06);
+  }
+
+  .contact-close:focus-visible {
+    outline: 1px solid rgba(255, 255, 255, 0.42);
+    outline-offset: 3px;
+  }
+
+  .contact-card {
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.84), rgba(241, 248, 235, 0.68)),
+      radial-gradient(circle at 18% 10%, rgba(145, 245, 173, 0.22), transparent 34%);
+    border: 1px solid rgba(255, 255, 255, 0.68);
+    color: #3c3b3b;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  }
+
+  .contact-avatar {
+    background:
+      linear-gradient(135deg, rgba(22, 35, 28, 0.92), rgba(91, 125, 88, 0.72)),
+      url("/images/seasons/summer.png");
+    background-position: center;
+    background-size: cover;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.42);
+  }
+
+  .contact-qr-stage {
+    aspect-ratio: 1;
+    max-width: 360px;
+    width: min(78vw, 360px);
+  }
+
+  .contact-qr-image,
+  .contact-qr-fallback {
+    aspect-ratio: 1;
+    border-radius: 22px;
+    display: block;
+    height: 100%;
+    object-fit: contain;
+    width: 100%;
+  }
+
+  .contact-qr-image {
+    background: #fff;
+    padding: 18px;
+  }
+
+  .contact-qr-fallback {
+    background: #fff;
+    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.12);
+    padding: 18px;
+    position: relative;
+  }
+
+  .contact-qr-grid {
+    display: grid;
+    gap: 3px;
+    grid-template-columns: repeat(29, minmax(0, 1fr));
+    height: 100%;
+    width: 100%;
+  }
+
+  .contact-qr-cell {
+    aspect-ratio: 1;
+    border-radius: 2px;
+  }
+
+  .contact-qr-cell.is-dark {
+    background: #030303;
+  }
+
+  .contact-wechat-mark {
+    align-items: center;
+    background: #030303;
+    border-radius: 18px;
+    color: #fff;
+    display: flex;
+    font-size: 18px;
+    font-weight: 700;
+    height: 74px;
+    justify-content: center;
+    left: 50%;
+    letter-spacing: 0.04em;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 74px;
+  }
+
+  .resume-company-panel {
+    transition:
+      background 0.42s ease,
+      border-color 0.42s ease,
+      box-shadow 0.42s ease,
+      transform 0.42s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .resume-company-summary {
+    min-height: 4.2rem;
+  }
+
+  .resume-company-summary-text {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    transition:
+      opacity 0.32s ease,
+      transform 0.42s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      visibility 0s linear 0s;
+    visibility: visible;
+  }
+
+  .resume-company-panel.is-open .resume-company-summary-text {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate3d(0, -6px, 0) scale(0.985);
+    transition:
+      opacity 0.28s ease,
+      transform 0.36s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      visibility 0s linear 0.28s;
+    visibility: hidden;
+  }
+
+  .resume-projects-grid {
+    display: grid;
+    grid-template-rows: 0fr;
+    margin-top: 0;
+    opacity: 0;
+    transform: translate3d(0, -10px, 0);
+    transition:
+      grid-template-rows 0.64s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      margin-top 0.64s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      opacity 0.38s ease,
+      transform 0.64s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    will-change: grid-template-rows, opacity, transform;
+  }
+
+  .resume-projects-grid.is-open {
+    grid-template-rows: 1fr;
+    margin-top: 1.5rem;
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+
+  .resume-projects-inner {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .resume-project-card {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 0.48s ease,
+      transform 0.56s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      border-color 0.2s ease,
+      background 0.2s ease;
+  }
+
+  .resume-projects-grid.is-open .resume-project-card {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .resume-project-card:hover {
+    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  .scroll-reveal {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0);
+    transition:
+      opacity 0.72s ease,
+      transform 0.72s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.36s ease,
+      background 0.36s ease,
+      box-shadow 0.36s ease;
+    will-change: opacity, transform;
+  }
+
+  .scroll-reveal.is-in-view {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+
+  .scroll-reveal.codex-reveal-left {
+    transform: translate3d(-48px, 18px, 0);
+  }
+
+  .scroll-reveal.codex-reveal-right {
+    transform: translate3d(48px, 18px, 0);
+    transition-delay: 120ms;
+  }
+
+  .scroll-reveal.codex-reveal-left.is-in-view,
+  .scroll-reveal.codex-reveal-right.is-in-view {
+    transform: translate3d(0, 0, 0);
+  }
+
+}
+
+.animate-fade-rise {
+  animation: fade-rise 0.8s ease-out both;
+}
+
+.animate-fade-rise-delay {
+  animation: fade-rise 0.8s ease-out 0.2s both;
+}
+
+.animate-fade-rise-delay-2 {
+  animation: fade-rise 0.8s ease-out 0.4s both;
+}
+
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modal-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes modal-fall {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.985);
+  }
+}
+
+@keyframes trace-light-drift {
+  0%,
+  100% {
+    filter: brightness(1) saturate(1);
+  }
+
+  50% {
+    filter: brightness(1.14) saturate(1.08);
+  }
+}
+
+@keyframes light-breathe {
+  0%,
+  100% {
+    opacity: 0.82;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes mist-drift {
+  from {
+    opacity: 0.78;
+    transform: translate3d(-1.2%, 0, 0);
+  }
+
+  to {
+    opacity: 0.94;
+    transform: translate3d(1.4%, -0.6%, 0);
+  }
+}
+
+@keyframes particle-float {
+  from {
+    transform: translate3d(0, 22px, 0);
+  }
+
+  to {
+    transform: translate3d(36px, -92px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .forest-light,
+  .forest-mist,
+  .season-background,
+  .trace-light,
+  .forest-particle,
+  .scroll-reveal,
+  .contact-modal,
+  .contact-dialog,
+  .resume-company-panel,
+  .resume-company-summary-text,
+  .resume-projects-grid,
+  .resume-project-card {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
