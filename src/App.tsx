@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
 const navItems = [
@@ -13,11 +13,52 @@ const navItems = [
 const assetUrl = (path: string) => `${import.meta.env.BASE_URL}${path}`;
 
 const seasonBackgrounds = [
-  { key: "spring", label: "Spring", image: assetUrl("images/seasons/spring.png") },
-  { key: "summer", label: "Summer", image: assetUrl("images/seasons/summer.png") },
-  { key: "autumn", label: "Autumn", image: assetUrl("images/seasons/autumn.png") },
-  { key: "winter", label: "Winter", image: assetUrl("images/seasons/winter.png") }
+  {
+    key: "spring",
+    label: "Spring",
+    image: assetUrl("images/seasons/spring.png"),
+    mobileImage: assetUrl("images/seasons/mobile/spring.jpg")
+  },
+  {
+    key: "summer",
+    label: "Summer",
+    image: assetUrl("images/seasons/summer.png"),
+    mobileImage: assetUrl("images/seasons/mobile/summer.jpg")
+  },
+  {
+    key: "autumn",
+    label: "Autumn",
+    image: assetUrl("images/seasons/autumn.png"),
+    mobileImage: assetUrl("images/seasons/mobile/autumn.jpg")
+  },
+  {
+    key: "winter",
+    label: "Winter",
+    image: assetUrl("images/seasons/winter.png"),
+    mobileImage: assetUrl("images/seasons/mobile/winter.jpg")
+  }
 ];
+
+function useMediaQuery(query: string) {
+  const getMatches = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia(query).matches;
+  }, [query]);
+
+  const [matches, setMatches] = useState(getMatches);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const onChange = () => setMatches(media.matches);
+
+    onChange();
+    media.addEventListener("change", onChange);
+
+    return () => media.removeEventListener("change", onChange);
+  }, [query]);
+
+  return matches;
+}
 
 const codexProjects = [
   {
@@ -128,37 +169,79 @@ const resumeCompanies = [
   }
 ];
 
-function FloatingForest({ scrollProgress }: { scrollProgress: number }) {
-  const particles = Array.from({ length: 34 }, (_, index) => ({
-    delay: `${index * -0.72}s`,
-    duration: `${13 + (index % 7) * 2.4}s`,
-    left: `${(index * 29 + 9) % 100}%`,
-    opacity: `${0.13 + (index % 5) * 0.055}`,
-    size: `${1.5 + (index % 3) * 0.75}px`,
-    top: `${(index * 17) % 96}%`
-  }));
+function FloatingForest() {
+  const isCompactVisual = useMediaQuery("(max-width: 767px)");
+  const layerRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const particleCount = isCompactVisual ? 12 : 34;
+  const particles = useMemo(
+    () =>
+      Array.from({ length: particleCount }, (_, index) => ({
+        delay: `${index * -0.72}s`,
+        duration: `${13 + (index % 7) * 2.4}s`,
+        left: `${(index * 29 + 9) % 100}%`,
+        opacity: `${0.13 + (index % 5) * 0.055}`,
+        size: `${1.5 + (index % 3) * 0.75}px`,
+        top: `${(index * 17) % 96}%`
+      })),
+    [particleCount]
+  );
 
-  return (
-    <div className="pointer-events-none fixed inset-0 z-[1] overflow-hidden">
-      {seasonBackgrounds.map((season, index) => {
+  useEffect(() => {
+    let frameId = 0;
+
+    const updateSeasonLayers = () => {
+      const scrollTop = window.scrollY;
+      const maxScroll = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+      const scrollProgress = Math.min(1, Math.max(0, scrollTop / maxScroll));
+
+      seasonBackgrounds.forEach((_, index) => {
+        const layer = layerRefs.current[index];
+        if (!layer) return;
+
         const seasonPosition = index / Math.max(seasonBackgrounds.length - 1, 1);
         const distance = Math.abs(scrollProgress - seasonPosition);
         const opacity = Math.max(0, 1 - distance * 3.35);
 
-        return (
+        layer.style.opacity = opacity.toFixed(3);
+      });
+
+      frameId = 0;
+    };
+
+    const requestSeasonUpdate = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(updateSeasonLayers);
+    };
+
+    updateSeasonLayers();
+    window.addEventListener("scroll", requestSeasonUpdate, { passive: true });
+    window.addEventListener("resize", requestSeasonUpdate);
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      window.removeEventListener("scroll", requestSeasonUpdate);
+      window.removeEventListener("resize", requestSeasonUpdate);
+    };
+  }, [isCompactVisual]);
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[1] overflow-hidden">
+      {seasonBackgrounds.map((season, index) => (
           <div
             aria-hidden="true"
             className={`season-background season-background-${season.key} absolute inset-0`}
             key={season.key}
+            ref={(node) => {
+              layerRefs.current[index] = node;
+            }}
             style={
               {
-                backgroundImage: `url("${season.image}")`,
-                opacity
+                backgroundImage: `url("${isCompactVisual ? season.mobileImage : season.image}")`,
+                opacity: index === 0 ? 1 : 0
               } as CSSProperties
             }
           />
-        );
-      })}
+      ))}
       <div className="forest-depth absolute inset-0" />
       <div className="forest-light absolute inset-0" />
       <div className="forest-mist absolute inset-0" />
@@ -186,7 +269,17 @@ function FloatingForest({ scrollProgress }: { scrollProgress: number }) {
 }
 
 function DynamicLightRig() {
+  const isCompactVisual = useMediaQuery("(max-width: 767px)");
+
   useEffect(() => {
+    if (isCompactVisual) {
+      const root = document.documentElement;
+      root.style.setProperty("--light-x", "32%");
+      root.style.setProperty("--light-y", "18%");
+      root.style.setProperty("--light-intensity", "0.72");
+      return;
+    }
+
     let frameId = 0;
     const root = document.documentElement;
 
@@ -205,7 +298,7 @@ function DynamicLightRig() {
     frameId = window.requestAnimationFrame(animateLight);
 
     return () => window.cancelAnimationFrame(frameId);
-  }, []);
+  }, [isCompactVisual]);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[9] overflow-hidden">
@@ -486,34 +579,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
 
 function App() {
   const [openCompany, setOpenCompany] = useState(0);
-  const [scrollProgress, setScrollProgress] = useState(0);
   const [contactModalOpen, setContactModalOpen] = useState(false);
-
-  useEffect(() => {
-    let frameId = 0;
-
-    const updateSeason = () => {
-      const scrollTop = window.scrollY;
-      const maxScroll = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
-      setScrollProgress(Math.min(1, Math.max(0, scrollTop / maxScroll)));
-      frameId = 0;
-    };
-
-    const onScroll = () => {
-      if (frameId) return;
-      frameId = window.requestAnimationFrame(updateSeason);
-    };
-
-    updateSeason();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-
-    return () => {
-      if (frameId) window.cancelAnimationFrame(frameId);
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, []);
 
   useEffect(() => {
     if (!contactModalOpen) return;
@@ -529,7 +595,7 @@ function App() {
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
-      <FloatingForest scrollProgress={scrollProgress} />
+      <FloatingForest />
       <DynamicLightRig />
 
       <nav className="fixed inset-x-0 top-0 z-20 mx-auto flex max-w-7xl flex-row items-center justify-between px-6 py-5 sm:px-8">
@@ -673,7 +739,7 @@ function App() {
             <GlassPanel className={`resume-company-panel ${isOpen ? "is-open" : ""} p-5`} key={company.company}>
               <button
                 aria-expanded={isOpen}
-                className="group grid w-full gap-5 text-left md:grid-cols-[260px_1fr_auto]"
+                className="resume-company-toggle group grid w-full text-left"
                 onClick={() => setOpenCompany(isOpen ? -1 : companyIndex)}
                 type="button"
               >
@@ -697,7 +763,7 @@ function App() {
                     {company.projects.length} 个项目模块，点击展开查看项目职责和细节。
                   </p>
                 </div>
-                <span className="liquid-glass flex h-11 w-11 items-center justify-center rounded-full text-xl text-foreground transition-transform duration-300 group-hover:scale-105">
+                <span className="resume-toggle-button liquid-glass flex h-11 w-11 items-center justify-center rounded-full text-xl text-foreground transition-transform duration-300 group-hover:scale-105">
                   {isOpen ? "−" : "+"}
                 </span>
               </button>

@@ -4,10 +4,18 @@
 
 ## 项目状态
 
-- 当前版本：`0.1.2`
+- 当前版本：`0.1.3`
 - GitHub 仓库：`https://github.com/mrxiaoxies/YYQ-Personal-web`
 - 版本记录：见 [CHANGELOG.md](./CHANGELOG.md)
 - 操作文档：见 [docs/OPERATIONS.md](./docs/OPERATIONS.md)
+
+## 本版更新
+
+`0.1.3` 主要优化移动端浏览体验：
+
+- 新增手机端专用四季背景图，窄屏访问时加载更适合手机比例的图片。
+- 优化移动端玻璃质感、光效和滚动动画，降低手机渲染压力。
+- 调整履历公司模块的移动端排版，避免标题、摘要和展开按钮在窄屏上拥挤。
 
 ## 技术栈
 
