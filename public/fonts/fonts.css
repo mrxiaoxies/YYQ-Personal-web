@@ -3,6 +3,30 @@
 @import url("./lxgwwenkai-bold.css");
 
 @font-face {
+  font-family: "Maple Mono CN";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./maple-mono/MapleMono-CN-Regular-subset.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Maple Mono CN";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./maple-mono/MapleMono-CN-Bold-subset.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Maple Mono CN";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url("./maple-mono/MapleMono-CN-Bold-subset.woff2") format("woff2");
+}
+
+@font-face {
   font-family: "Instrument Serif";
   font-style: normal;
   font-weight: 400;

@@ -65,7 +65,7 @@ const codexProjects = [
     title: "个人网站",
     status: "React 重构中",
     progress: 82,
-    summary: "以电影感视频、液态玻璃导航、动态像素森林为主体风格，承载项目进度和简历内容。",
+    summary: "已完成四季滚动背景、液态玻璃面板、项目进度与简历模块，并持续优化移动端体验。",
     points: ["Vite + React + TypeScript", "Tailwind CSS + shadcn/ui", "动态背景与玻璃面板"]
   },
   {
@@ -79,6 +79,10 @@ const codexProjects = [
 
 const skillGroups = [
   {
+    title: "AI 工具能力",
+    items: ["Codex 协作开发", "Builder.io 可视化编辑", "提示词拆解与优化", "AI 工作流梳理"]
+  },
+  {
     title: "黑盒测试",
     items: ["冒烟测试", "边界值", "有效类", "错误处理", "UI 界面测试", "业务流程测试"]
   },
@@ -89,10 +93,6 @@ const skillGroups = [
   {
     title: "接口与数据",
     items: ["Postman", "MySQL增删改查操作", "日志定位", "前端控制台辅助判断"]
-  },
-  {
-    title: "AI 工具能力",
-    items: ["Codex 协作开发", "Builder.io 可视化编辑", "提示词拆解与优化", "AI 工作流梳理"]
   }
 ];
 
@@ -387,22 +387,26 @@ function SeasonReview() {
 function SectionHeading({
   eyebrow,
   title,
-  copy
+  copy,
+  eyebrowClassName = "text-sm font-medium text-muted-foreground",
+  copyClassName = "text-base text-muted-foreground sm:text-lg"
 }: {
   eyebrow: string;
   title: string;
   copy: string;
+  eyebrowClassName?: string;
+  copyClassName?: string;
 }) {
   return (
     <div className="mx-auto mb-12 max-w-3xl text-center">
-      <p className="text-sm font-medium uppercase tracking-[0.28em] text-muted-foreground">{eyebrow}</p>
+      <p className={`uppercase tracking-[0.28em] ${eyebrowClassName}`}>{eyebrow}</p>
       <h2
         className="mt-4 text-4xl font-normal leading-none tracking-[-1.2px] text-foreground sm:text-6xl"
         style={{ fontFamily: "var(--font-cjk-display)" }}
       >
         {title}
       </h2>
-      <p className="mt-5 text-base leading-relaxed text-muted-foreground sm:text-lg">{copy}</p>
+      {copy ? <p className={`mt-5 leading-relaxed ${copyClassName}`}>{copy}</p> : null}
     </div>
   );
 }
@@ -663,7 +667,9 @@ function App() {
       <section className="relative z-10 px-6 py-28" id="codex">
         <SectionHeading
           copy="使用 Codex 进行项目细节、进度"
+          copyClassName="text-base font-semibold text-[#212121] sm:text-lg"
           eyebrow="Codex Workbench"
+          eyebrowClassName="text-base font-semibold text-muted-foreground"
           title="项目进度板"
         />
         <div className="mx-auto grid max-w-6xl gap-5 md:grid-cols-2">
@@ -686,13 +692,15 @@ function App() {
               >
                 {project.title}
               </h3>
-              <p className="mt-4 leading-relaxed text-muted-foreground">{project.summary}</p>
+              <p className={`mt-4 leading-relaxed ${index === 1 ? "text-[#fffafa]" : "text-white"}`}>
+                {project.summary}
+              </p>
               <div className="mt-7 h-2 overflow-hidden rounded-full bg-white/10">
                 <div className="h-full rounded-full bg-white/70" style={{ width: `${project.progress}%` }} />
               </div>
               <div className="mt-7 flex flex-wrap gap-2">
                 {project.points.map((point) => (
-                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-muted-foreground" key={point}>
+                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white" key={point}>
                     {point}
                   </span>
                 ))}
@@ -704,15 +712,17 @@ function App() {
 
       <section className="relative z-10 px-6 py-28" id="skills">
         <SectionHeading
-          copy="偏实战的测试能力组合：从业务流程到接口数据，再到 Linux 环境和日志定位。"
+          copy="环境系统测试，后端系统维护，环境搭建，AI工具操作"
+          copyClassName="text-base text-white sm:text-lg"
           eyebrow="Skills"
+          eyebrowClassName="text-[17px] font-semibold text-white"
           title="测试能力与工具栈"
         />
         <div className="mx-auto grid max-w-6xl gap-5 md:grid-cols-2 lg:grid-cols-4">
           {skillGroups.map((group) => (
             <GlassPanel className="p-5" key={group.title}>
-              <h3 className="text-lg font-medium text-foreground">{group.title}</h3>
-              <ul className="mt-5 space-y-3 text-sm text-muted-foreground">
+              <h3 className="text-xl font-medium text-foreground">{group.title}</h3>
+              <ul className="mt-5 space-y-3 text-sm text-white">
                 {group.items.map((item) => (
                   <li className="flex gap-3" key={item}>
                     <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/60" />
@@ -727,7 +737,7 @@ function App() {
 
       <section className="relative z-10 px-6 py-28" id="resume">
         <SectionHeading
-          copy="按公司分类，项目作为子模块展开，保留你在简历里最核心的测试职责和项目内容。"
+          copy=""
           eyebrow="Resume"
           title="公司与项目经历"
         />
@@ -777,13 +787,13 @@ function App() {
                       style={{ transitionDelay: `${projectIndex * 70}ms` }}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <h4 className="text-xl font-medium text-foreground">{project.title}</h4>
+                        <h4 className="resume-project-title text-[25px] font-semibold text-foreground">{project.title}</h4>
                         <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-muted-foreground">
                           {project.time}
                         </span>
                       </div>
-                      <p className="mt-3 leading-relaxed text-muted-foreground">{project.summary}</p>
-                      <ul className="mt-4 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+                      <p className="resume-project-summary mt-3 font-semibold leading-relaxed text-[#3b3a3a]">{project.summary}</p>
+                      <ul className="resume-project-points mt-4 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
                         {project.points.map((point) => (
                           <li className="flex gap-3" key={point}>
                             <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/60" />
