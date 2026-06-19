@@ -658,8 +658,10 @@ function App() {
           <Button className="liquid-glass light-reactive cursor-pointer rounded-full px-10 py-5 text-base text-foreground transition-transform hover:scale-[1.03]">
             查看项目进度
           </Button>
-          <Button className="liquid-glass light-reactive cursor-pointer rounded-full px-10 py-5 text-base text-foreground transition-transform hover:scale-[1.03]">
-            下载简历信息
+          <Button asChild className="liquid-glass light-reactive cursor-pointer rounded-full px-10 py-5 text-base text-foreground transition-transform hover:scale-[1.03]">
+            <a download="杨烨齐简历.pdf" href={assetUrl("files/yang-yeqi-resume.pdf")}>
+              下载简历信息
+            </a>
           </Button>
         </div>
       </section>
