@@ -16,7 +16,7 @@
 
 - 新增 Codex 维护工作流 skill，规范更新、校验、GitHub 发布和 Netlify 部署步骤。
 - 首页“下载简历信息”按钮改为下载 `public/files/yang-yeqi-resume.pdf`。
-- 操作文档新增 skill 使用说明和 Netlify 生产部署流程。
+- 操作文档新增 skill 使用说明、GitHub Pages 生产部署流程和 Netlify 备用部署说明。
 
 ## 技术栈
 
@@ -74,7 +74,23 @@ git push
 
 提交前请确认 `npm run typecheck` 和 `npm run build` 通过。
 
-## Netlify 部署
+## GitHub Pages 部署
+
+线上地址：
+
+```text
+https://mrxiaoxies.github.io/YYQ-Personal-web/
+```
+
+生产站点由 `gh-pages` 分支发布。发布前先构建：
+
+```powershell
+npm run build
+```
+
+再将 `dist/` 内容提交并推送到 `gh-pages`。详细步骤见 [docs/OPERATIONS.md](./docs/OPERATIONS.md)。
+
+## Netlify 备用部署
 
 `netlify.toml` 已固定构建命令和发布目录：
 
@@ -84,7 +100,7 @@ git push
   publish = "dist"
 ```
 
-生产部署：
+Netlify CLI 登录并绑定站点后可执行：
 
 ```powershell
 npx netlify status

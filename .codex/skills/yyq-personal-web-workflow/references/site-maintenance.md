@@ -46,7 +46,21 @@ Use patch versions for small content, asset, documentation, and workflow release
 3. Commit with a concise conventional message, for example `chore: release v0.1.5`.
 4. Push to `origin main` unless a feature branch or PR flow is requested.
 
+## GitHub Pages Deployment Checklist
+
+1. Run `npm run build`.
+2. Fetch `origin/gh-pages`.
+3. Create a temporary worktree for `origin/gh-pages`.
+4. Replace the worktree contents with `dist/`.
+5. Commit as `deploy: release vX.Y.Z`.
+6. Push `HEAD:gh-pages`.
+7. Verify:
+   - `https://mrxiaoxies.github.io/YYQ-Personal-web/`
+   - Any new public asset URLs, such as files under `/files/`.
+
 ## Netlify Deployment Checklist
+
+Use Netlify only when the CLI is authenticated and linked.
 
 1. Confirm `netlify.toml` still uses `npm run build` and `dist`.
 2. Run `npm run build` locally.

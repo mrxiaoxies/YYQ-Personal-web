@@ -45,7 +45,15 @@ Use explicit file paths when there are mixed changes. Do not commit `dist/`, `no
 
 ## Deployment
 
-Deploy with Netlify after a clean build. The repository uses:
+Deploy the live site through GitHub Pages by updating the remote `gh-pages` branch with the contents of `dist/`. Build locally first:
+
+```powershell
+npm run build
+```
+
+Use a temporary worktree for the Pages branch, replace its contents with `dist/`, commit, and push `HEAD:gh-pages`. Verify `https://mrxiaoxies.github.io/YYQ-Personal-web/` after the push.
+
+Netlify is also configured, but it requires a linked/authenticated Netlify CLI session. The repository uses:
 
 ```toml
 [build]
@@ -53,7 +61,7 @@ Deploy with Netlify after a clean build. The repository uses:
   publish = "dist"
 ```
 
-Prefer:
+When Netlify auth is available, use:
 
 ```powershell
 npx netlify status

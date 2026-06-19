@@ -123,9 +123,45 @@ Use $yyq-personal-web-workflow to update, validate, publish, and deploy the YYQ 
 - 更新源码、静态资源、版本号和 `CHANGELOG.md`
 - 更新本操作手册中的运行、发布或部署步骤
 - 执行 `npm run typecheck` 和 `npm run build`
-- 推送 GitHub 后再执行 Netlify 生产部署
+- 推送 GitHub 后再发布 `gh-pages` 生产分支
 
-## 11. Netlify 线上部署
+## 11. GitHub Pages 线上部署
+
+当前线上地址：
+
+```text
+https://mrxiaoxies.github.io/YYQ-Personal-web/
+```
+
+发布前先确认本地构建通过：
+
+```powershell
+npm run build
+```
+
+当前生产站点使用远程 `gh-pages` 分支。推荐用临时 worktree 发布：
+
+```powershell
+git fetch origin gh-pages:refs/remotes/origin/gh-pages
+git worktree add .deploy-gh-pages origin/gh-pages
+```
+
+将 `dist/` 内容复制到 `.deploy-gh-pages/`，提交并推送到 `gh-pages`：
+
+```powershell
+git -C .deploy-gh-pages add -A
+git -C .deploy-gh-pages commit -m "deploy: release v0.1.5"
+git -C .deploy-gh-pages push origin HEAD:gh-pages
+git worktree remove .deploy-gh-pages
+```
+
+部署完成后验证首页和新增静态资源地址。例如：
+
+```text
+https://mrxiaoxies.github.io/YYQ-Personal-web/files/yang-yeqi-resume.pdf
+```
+
+## 12. Netlify 备用部署
 
 本项目使用 `netlify.toml` 固定构建配置：
 
@@ -135,31 +171,25 @@ Use $yyq-personal-web-workflow to update, validate, publish, and deploy the YYQ 
   publish = "dist"
 ```
 
-部署前先确认本地构建通过：
-
-```powershell
-npm run build
-```
-
-确认 Netlify 登录和站点绑定状态：
+Netlify CLI 需要先完成登录和站点绑定。确认状态：
 
 ```powershell
 npx netlify status
 ```
 
-发布到线上生产环境：
+发布到 Netlify 生产环境：
 
 ```powershell
 npx netlify deploy --prod
 ```
 
-部署完成后记录终端输出的生产地址和部署日志地址。
+如果显示未登录，需要先完成 Netlify 登录，或配置 `NETLIFY_AUTH_TOKEN`。
 
-## 12. 发布检查清单
+## 13. 发布检查清单
 
 - `npm run typecheck` 通过
 - `npm run build` 通过
 - `package.json`、`VERSION` 和 `CHANGELOG.md` 版本一致
 - `git status` 中没有不应提交的文件
 - 已推送到 GitHub 对应分支
-- 已执行 Netlify 生产部署并确认线上地址可访问
+- 已发布 `gh-pages` 并确认线上地址可访问

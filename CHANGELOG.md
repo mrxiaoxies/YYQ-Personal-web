@@ -8,7 +8,7 @@
 
 - 新增 Codex 维护工作流 skill，用于规范个人网站的更新、校验、GitHub 发布和 Netlify 部署步骤。
 - 新增简历 PDF 静态文件下载入口，首页按钮可直接下载简历信息。
-- 操作文档新增 skill 使用说明和 Netlify 生产部署流程。
+- 操作文档新增 skill 使用说明、GitHub Pages 生产部署流程和 Netlify 备用部署说明。
 
 ### Fixed
 
