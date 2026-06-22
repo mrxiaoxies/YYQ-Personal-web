@@ -659,7 +659,7 @@ function App() {
             查看项目进度
           </Button>
           <Button asChild className="liquid-glass light-reactive cursor-pointer rounded-full px-10 py-5 text-base text-foreground transition-transform hover:scale-[1.03]">
-            <a download="杨烨齐简历.pdf" href={assetUrl("files/yang-yeqi-resume.pdf")}>
+            <a download="杨烨齐简历.docx" href={assetUrl("files/yang-yeqi-resume.docx")}>
               下载简历信息
             </a>
           </Button>
