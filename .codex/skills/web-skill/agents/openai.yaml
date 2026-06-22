@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Skill"
+  short_description: "Maintain and deploy the YYQ personal website."
+  default_prompt: "Use $web-skill to update, validate, publish, and deploy the YYQ personal website."

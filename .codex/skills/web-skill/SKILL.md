@@ -1,13 +1,15 @@
 ---
-name: yyq-personal-web-workflow
-description: Maintain, validate, publish, and deploy the YYQ personal website repository. Use when updating this Vite React TypeScript personal site, changing resume/contact/assets/content, bumping the site version, updating operations documentation, pushing to GitHub, or deploying the live Netlify site.
+name: web-skill
+description: Maintain, validate, publish, and deploy the YYQ personal website repository. Use when the user says "web skill", invokes $web-skill, updates this Vite React TypeScript personal site, changes resume/contact/assets/content, bumps the site version, updates operations documentation, pushes to GitHub, or deploys the live GitHub Pages or Netlify site.
 ---
 
-# YYQ Personal Web Workflow
+# Web Skill
 
 ## Overview
 
-Use this skill to keep changes to the YYQ personal website consistent from local edits through production deployment. It captures the expected checks, version bookkeeping, documentation updates, GitHub push, and Netlify deployment sequence for this repository.
+Use this skill to keep changes to the YYQ personal website consistent from local edits through production deployment. Call it with `Use $web-skill ...` or by saying "use web skill" when working on this website.
+
+This skill captures the expected checks, version bookkeeping, documentation updates, GitHub push, GitHub Pages deployment, and optional Netlify deployment sequence for this repository.
 
 ## First Checks
 

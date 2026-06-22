@@ -338,31 +338,38 @@
   }
 
   .contact-qr-stage {
-    aspect-ratio: 1;
+    display: grid;
+    max-height: min(58svh, 560px);
     max-width: 100%;
-    width: min(78vw, 38svh, 360px);
+    place-items: center;
+    width: min(82vw, 420px);
   }
 
   .contact-qr-image,
   .contact-qr-fallback {
-    aspect-ratio: 1;
     border-radius: 22px;
     display: block;
-    height: 100%;
     object-fit: contain;
-    width: 100%;
   }
 
   .contact-qr-image {
-    background: #fff;
-    padding: 18px;
+    background: transparent;
+    height: auto;
+    max-height: min(58svh, 560px);
+    max-width: 100%;
+    padding: 0;
+    width: auto;
   }
 
   .contact-qr-fallback {
+    aspect-ratio: 1;
     background: #fff;
     box-shadow: 0 16px 50px rgba(0, 0, 0, 0.12);
+    height: auto;
+    max-width: 100%;
     padding: 18px;
     position: relative;
+    width: min(78vw, 38svh, 360px);
   }
 
   .contact-qr-grid {

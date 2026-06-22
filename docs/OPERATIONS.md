@@ -105,16 +105,22 @@ git push
 
 ## 10. Codex Skill 工作流
 
-本仓库内置维护工作流 skill：
+本仓库内置网站维护工作流 skill，名称为 `web-skill`：
 
 ```text
-.codex/skills/yyq-personal-web-workflow/
+.codex/skills/web-skill/
 ```
 
 在 Codex 中维护、发版或部署网站时，可直接要求：
 
 ```text
-Use $yyq-personal-web-workflow to update, validate, publish, and deploy the YYQ personal website.
+Use $web-skill to update, validate, publish, and deploy the YYQ personal website.
+```
+
+也可以用自然语言调用：
+
+```text
+使用 web skill 更新并发布我的个人网站。
 ```
 
 该 skill 会提醒执行以下流程：

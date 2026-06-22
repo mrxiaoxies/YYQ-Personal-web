@@ -1,4 +1,0 @@
-interface:
-  display_name: "YYQ Personal Web Workflow"
-  short_description: "Maintain and deploy the YYQ personal website."
-  default_prompt: "Use $yyq-personal-web-workflow to update, validate, publish, and deploy the YYQ personal website."

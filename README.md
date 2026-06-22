@@ -8,7 +8,7 @@
 - GitHub 仓库：`https://github.com/mrxiaoxies/YYQ-Personal-web`
 - 版本记录：见 [CHANGELOG.md](./CHANGELOG.md)
 - 操作文档：见 [docs/OPERATIONS.md](./docs/OPERATIONS.md)
-- Codex 工作流：见 [.codex/skills/yyq-personal-web-workflow](./.codex/skills/yyq-personal-web-workflow)
+- Codex 工作流：见 [.codex/skills/web-skill](./.codex/skills/web-skill)，可用 `Use $web-skill ...` 或“使用 web skill ...”调用
 
 ## 本版更新
 
