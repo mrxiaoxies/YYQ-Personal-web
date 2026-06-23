@@ -407,6 +407,62 @@
     width: 74px;
   }
 
+  .admin-toolbar {
+    align-items: center;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+  }
+
+  .admin-token-form {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: flex-end;
+  }
+
+  .admin-token-input {
+    background: rgba(255, 255, 255, 0.13);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    color: rgba(255, 255, 255, 0.94);
+    min-height: 2.5rem;
+    min-width: min(72vw, 15rem);
+    padding: 0.6rem 1rem;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.22);
+  }
+
+  .admin-token-input::placeholder {
+    color: rgba(255, 255, 255, 0.58);
+  }
+
+  .admin-token-input:focus {
+    border-color: rgba(255, 255, 255, 0.46);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(145, 245, 173, 0.16);
+  }
+
+  .admin-metric-card {
+    min-height: 10rem;
+  }
+
+  .admin-session-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .admin-session-row {
+    align-items: center;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    padding: 1rem;
+  }
+
   .resume-company-panel {
     transition:
       background 0.42s ease,
@@ -749,6 +805,22 @@
 
   .resume-projects-grid {
     will-change: auto;
+  }
+
+  .admin-toolbar,
+  .admin-session-row {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-toolbar,
+  .admin-token-form {
+    flex-direction: column;
+  }
+
+  .admin-token-form,
+  .admin-token-input {
+    width: 100%;
   }
 }
 
