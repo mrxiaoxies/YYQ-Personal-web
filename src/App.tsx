@@ -63,6 +63,11 @@ type AnalyticsStats = {
 
 const analyticsVisitorIdKey = "yyq-analytics-visitor-id";
 const analyticsSessionIdKey = "yyq-analytics-session-id";
+const analyticsApiBase = (import.meta.env.VITE_ANALYTICS_API_BASE ?? "").replace(/\/$/, "");
+
+function analyticsEndpoint(path: "/api/stats" | "/api/visit") {
+  return `${analyticsApiBase}${path}`;
+}
 
 function createClientId(prefix: string) {
   const randomId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
@@ -96,11 +101,11 @@ function postAnalyticsEvent(event: "heartbeat" | "pageview", useBeacon = false) 
 
   if (useBeacon && navigator.sendBeacon) {
     const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-    navigator.sendBeacon("/api/visit", blob);
+    navigator.sendBeacon(analyticsEndpoint("/api/visit"), blob);
     return;
   }
 
-  void fetch("/api/visit", {
+  void fetch(analyticsEndpoint("/api/visit"), {
     body: JSON.stringify(payload),
     headers: { "Content-Type": "application/json" },
     keepalive: true,
@@ -589,7 +594,7 @@ function AnalyticsDashboard() {
     setError("");
 
     try {
-      const response = await fetch("/api/stats", {
+      const response = await fetch(analyticsEndpoint("/api/stats"), {
         headers: nextToken ? { "x-admin-token": nextToken } : {},
         method: "GET"
       });

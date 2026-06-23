@@ -40,6 +40,9 @@ const ONLINE_WINDOW_MS = 90_000;
 const MAX_RECENT_VISITORS = 12;
 
 const jsonHeaders = {
+  "Access-Control-Allow-Headers": "Content-Type, x-admin-token",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Origin": "*",
   "Cache-Control": "no-store",
   "Content-Type": "application/json; charset=utf-8"
 };
@@ -212,7 +215,7 @@ async function handleStats(req: Request) {
 
 export default async (req: Request, context: { geo?: any }) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204 });
+    return new Response(null, { headers: jsonHeaders, status: 204 });
   }
 
   const pathname = new URL(req.url).pathname;
