@@ -4,7 +4,7 @@
 
 ## 项目状态
 
-- 当前版本：`0.1.5`
+- 当前版本：`0.1.7`
 - GitHub 仓库：`https://github.com/mrxiaoxies/YYQ-Personal-web`
 - 版本记录：见 [CHANGELOG.md](./CHANGELOG.md)
 - 操作文档：见 [docs/OPERATIONS.md](./docs/OPERATIONS.md)
@@ -12,11 +12,11 @@
 
 ## 本版更新
 
-`0.1.5` 主要补齐站点维护工作流和发布说明：
+`0.1.7` 主要增强四季视觉动效和首页内容结构：
 
-- 新增 Codex 维护工作流 skill，规范更新、校验、GitHub 发布和 Netlify 部署步骤。
-- 首页“下载简历信息”按钮改为下载 `public/files/yang-yeqi-resume.pdf`。
-- 操作文档新增 skill 使用说明、GitHub Pages 生产部署流程和 Netlify 备用部署说明。
+- 新增春季花瓣、夏季绿叶、秋季落叶、冬季雪花掉落动效。
+- 新增夏季萤火虫路径动画，滚动到夏季背景时自动显示。
+- 调整首页区块顺序和 Codex 项目进度内容，补充访问统计后台进展。
 
 ## 技术栈
 
@@ -68,7 +68,7 @@ npm run preview
 ```powershell
 git status
 git add .
-git commit -m "chore: release v0.1.5"
+git commit -m "chore: release v0.1.7"
 git push
 ```
 

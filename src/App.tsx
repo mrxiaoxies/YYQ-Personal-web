@@ -4,9 +4,9 @@ import type { CSSProperties, FormEvent, ReactNode } from "react";
 
 const navItems = [
   { label: "Home", href: "#home" },
-  { label: "Codex", href: "#codex" },
   { label: "Skills", href: "#skills" },
   { label: "Resume", href: "#resume" },
+  { label: "Codex", href: "#codex" },
   { label: "Reach Me", href: "#contact" }
 ];
 
@@ -38,6 +38,31 @@ const seasonBackgrounds = [
     mobileImage: assetUrl("images/seasons/mobile/winter.jpg")
   }
 ];
+
+const fallingSpriteSets = {
+  spring: [
+    { image: assetUrl("images/leaves/petal-slender.png"), ratio: 0.94 },
+    { image: assetUrl("images/leaves/petal-round.png"), ratio: 1.29 }
+  ],
+  summer: [
+    { image: assetUrl("images/leaves/summer-leaf-long.png"), ratio: 1.63 },
+    { image: assetUrl("images/leaves/summer-leaf-maple.png"), ratio: 1.24 },
+    { image: assetUrl("images/leaves/summer-leaf-narrow.png"), ratio: 1.52 }
+  ],
+  autumn: [
+    { image: assetUrl("images/leaves/autumn-maple.png"), ratio: 1.08 },
+    { image: assetUrl("images/leaves/autumn-leaf-long.png"), ratio: 1.62 }
+  ],
+  winter: [
+    { image: assetUrl("images/leaves/winter-snowflake-1.png"), ratio: 1 },
+    { image: assetUrl("images/leaves/winter-snowflake-2.png"), ratio: 1 },
+    { image: assetUrl("images/leaves/winter-snowflake-3.png"), ratio: 1 }
+  ]
+};
+
+type FallingSpriteSetKey = keyof typeof fallingSpriteSets;
+
+const summerFireflySprite = assetUrl("images/effects/summer-firefly.png");
 
 type RecentVisitor = {
   city?: string;
@@ -162,10 +187,17 @@ function useMediaQuery(query: string) {
 const codexProjects = [
   {
     title: "个人网站",
-    status: "React 重构中",
-    progress: 82,
-    summary: "已完成四季滚动背景、液态玻璃面板、项目进度与简历模块，并持续优化移动端体验。",
-    points: ["Vite + React + TypeScript", "Tailwind CSS + shadcn/ui", "动态背景与玻璃面板"]
+    status: "持续优化中",
+    progress: 92,
+    summary: "已完成四季滚动背景、液态玻璃面板、项目进度与简历模块，并加入春夏秋冬掉落物和夏季萤火虫路径动效。",
+    points: ["四季背景切换", "花瓣/绿叶/秋叶/雪花", "萤火虫轨迹动效", "移动端体验优化"]
+  },
+  {
+    title: "访问统计后台",
+    status: "部署联调中",
+    progress: 76,
+    summary: "为个人网站增加访问人数、当前在线人数和最近访问记录看板，继续处理上线后接口连接与 Netlify 部署联调。",
+    points: ["访问人数统计", "在线人数看板", "后台数据接口", "Netlify 联调"]
   },
   {
     title: "微信 AI 好友",
@@ -271,7 +303,13 @@ const resumeCompanies = [
 function FloatingForest() {
   const isCompactVisual = useMediaQuery("(max-width: 767px)");
   const layerRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const [fallingSpriteSetKey, setFallingSpriteSetKey] = useState<FallingSpriteSetKey>("spring");
+  const [isSummerBackground, setIsSummerBackground] = useState(false);
+  const fallingSpriteSetRef = useRef<FallingSpriteSetKey>("spring");
+  const isSummerBackgroundRef = useRef(false);
   const particleCount = isCompactVisual ? 12 : 34;
+  const leafCount = isCompactVisual ? 8 : 24;
+  const fireflyCount = 2;
   const particles = useMemo(
     () =>
       Array.from({ length: particleCount }, (_, index) => ({
@@ -284,6 +322,128 @@ function FloatingForest() {
       })),
     [particleCount]
   );
+  const leaves = useMemo(
+    () =>
+      Array.from({ length: leafCount }, (_, index) => {
+        const sprites = fallingSpriteSets[fallingSpriteSetKey];
+        const sprite = sprites[index % sprites.length];
+        const maxSize = isCompactVisual ? 12 : 18;
+        const width = sprite.ratio > 1 ? Math.round(maxSize / sprite.ratio) : maxSize;
+        const height = sprite.ratio > 1 ? maxSize : Math.round(maxSize * sprite.ratio);
+        const direction = index % 2 === 0 ? 1 : -1;
+
+        return {
+          delay: `${index * -1.36}s`,
+          drift: `${direction * (42 + (index % 6) * 16)}px`,
+          duration: `${18 + (index % 7) * 2.2}s`,
+          height: `${height}px`,
+          image: sprite.image,
+          left: `${(index * 37 + 11) % 100}%`,
+          midDrift: `${direction * (18 + (index % 6) * 7)}px`,
+          opacity: `${0.78 + (index % 3) * 0.06}`,
+          rotate: `${(index * 43) % 360}deg`,
+          spin: `${260 + (index % 5) * 54}deg`,
+          width: `${width}px`
+        };
+      }),
+    [fallingSpriteSetKey, isCompactVisual, leafCount]
+  );
+  const fireflies = useMemo(
+    () => {
+      const size = isCompactVisual ? 18 : 24;
+      const routes = [
+        {
+          delay: "-4.8s",
+          duration: isCompactVisual ? "32s" : "40s",
+          opacity: 0.84,
+          points: isCompactVisual
+            ? [
+                ["92vw", "18vh", "-50deg", "138deg"],
+                ["76vw", "28vh", "-32deg", "150deg"],
+                ["58vw", "26vh", "-60deg", "120deg"],
+                ["42vw", "33vh", "-36deg", "154deg"],
+                ["25vw", "28vh", "-64deg", "116deg"],
+                ["9vw", "35vh", "-42deg", "144deg"],
+                ["3vw", "42vh", "-18deg", "162deg"]
+              ]
+            : [
+                ["90vw", "12vh", "-48deg", "138deg"],
+                ["76vw", "23vh", "-34deg", "150deg"],
+                ["59vw", "27vh", "-60deg", "120deg"],
+                ["45vw", "24vh", "-30deg", "156deg"],
+                ["29vw", "30vh", "-68deg", "112deg"],
+                ["13vw", "25vh", "-42deg", "146deg"],
+                ["4vw", "33vh", "-20deg", "162deg"]
+              ]
+        },
+        {
+          delay: "-16s",
+          duration: isCompactVisual ? "36s" : "46s",
+          opacity: 0.78,
+          points: isCompactVisual
+            ? [
+                ["5vw", "76vh", "134deg", "-36deg"],
+                ["18vw", "65vh", "118deg", "-52deg"],
+                ["33vw", "70vh", "154deg", "-22deg"],
+                ["47vw", "61vh", "118deg", "-58deg"],
+                ["65vw", "56vh", "146deg", "-32deg"],
+                ["83vw", "65vh", "118deg", "-62deg"],
+                ["94vw", "52vh", "162deg", "-18deg"]
+              ]
+            : [
+                ["6vw", "74vh", "136deg", "-38deg"],
+                ["20vw", "62vh", "116deg", "-54deg"],
+                ["37vw", "69vh", "154deg", "-22deg"],
+                ["52vw", "60vh", "118deg", "-58deg"],
+                ["68vw", "55vh", "146deg", "-34deg"],
+                ["84vw", "64vh", "118deg", "-62deg"],
+                ["94vw", "49vh", "160deg", "-20deg"]
+              ]
+        }
+      ].slice(0, fireflyCount);
+
+      return routes.map((route) => ({
+        delay: route.delay,
+        duration: route.duration,
+        left: "0",
+        dimOpacity: `${(route.opacity * 0.68).toFixed(3)}`,
+        opacity: `${route.opacity.toFixed(3)}`,
+        softOpacity: `${(route.opacity * 0.88).toFixed(3)}`,
+        top: "0",
+        width: `${size}px`,
+        height: `${Math.round(size * 0.97)}px`,
+        x0: route.points[0][0],
+        y0: route.points[0][1],
+        r0: route.points[0][2],
+        rb0: route.points[0][3],
+        x1: route.points[1][0],
+        y1: route.points[1][1],
+        r1: route.points[1][2],
+        rb1: route.points[1][3],
+        x2: route.points[2][0],
+        y2: route.points[2][1],
+        r2: route.points[2][2],
+        rb2: route.points[2][3],
+        x3: route.points[3][0],
+        y3: route.points[3][1],
+        r3: route.points[3][2],
+        rb3: route.points[3][3],
+        x4: route.points[4][0],
+        y4: route.points[4][1],
+        r4: route.points[4][2],
+        rb4: route.points[4][3],
+        x5: route.points[5][0],
+        y5: route.points[5][1],
+        r5: route.points[5][2],
+        rb5: route.points[5][3],
+        x6: route.points[6][0],
+        y6: route.points[6][1],
+        r6: route.points[6][2],
+        rb6: route.points[6][3]
+      }));
+    },
+    [fireflyCount, isCompactVisual]
+  );
 
   useEffect(() => {
     let frameId = 0;
@@ -292,6 +452,25 @@ function FloatingForest() {
       const scrollTop = window.scrollY;
       const maxScroll = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
       const scrollProgress = Math.min(1, Math.max(0, scrollTop / maxScroll));
+      const nextFallingSpriteSetKey: FallingSpriteSetKey =
+        scrollProgress >= 5 / 6
+          ? "winter"
+          : scrollProgress >= 1 / 2
+            ? "autumn"
+            : scrollProgress >= 1 / 6
+              ? "summer"
+              : "spring";
+      const nextIsSummerBackground = scrollProgress >= 1 / 6 && scrollProgress < 1 / 2;
+
+      if (fallingSpriteSetRef.current !== nextFallingSpriteSetKey) {
+        fallingSpriteSetRef.current = nextFallingSpriteSetKey;
+        setFallingSpriteSetKey(nextFallingSpriteSetKey);
+      }
+
+      if (isSummerBackgroundRef.current !== nextIsSummerBackground) {
+        isSummerBackgroundRef.current = nextIsSummerBackground;
+        setIsSummerBackground(nextIsSummerBackground);
+      }
 
       seasonBackgrounds.forEach((_, index) => {
         const layer = layerRefs.current[index];
@@ -344,6 +523,83 @@ function FloatingForest() {
       <div className="forest-depth absolute inset-0" />
       <div className="forest-light absolute inset-0" />
       <div className="forest-mist absolute inset-0" />
+      <div
+        aria-hidden="true"
+        className={`forest-firefly-layer absolute inset-0 ${isSummerBackground ? "is-summer-active" : ""}`}
+      >
+        {fireflies.map((firefly, index) => (
+          <span
+            className="forest-firefly absolute"
+            key={`firefly-${index}`}
+            style={
+              {
+                animationDelay: firefly.delay,
+                height: firefly.height,
+                left: firefly.left,
+                top: firefly.top,
+                width: firefly.width,
+                "--firefly-duration": firefly.duration,
+                "--firefly-dim-opacity": firefly.dimOpacity,
+                "--firefly-image": `url("${summerFireflySprite}")`,
+                "--firefly-opacity": firefly.opacity,
+                "--firefly-soft-opacity": firefly.softOpacity,
+                "--firefly-r0": firefly.r0,
+                "--firefly-r1": firefly.r1,
+                "--firefly-r2": firefly.r2,
+                "--firefly-r3": firefly.r3,
+                "--firefly-r4": firefly.r4,
+                "--firefly-r5": firefly.r5,
+                "--firefly-r6": firefly.r6,
+                "--firefly-rb0": firefly.rb0,
+                "--firefly-rb1": firefly.rb1,
+                "--firefly-rb2": firefly.rb2,
+                "--firefly-rb3": firefly.rb3,
+                "--firefly-rb4": firefly.rb4,
+                "--firefly-rb5": firefly.rb5,
+                "--firefly-rb6": firefly.rb6,
+                "--firefly-x0": firefly.x0,
+                "--firefly-x1": firefly.x1,
+                "--firefly-x2": firefly.x2,
+                "--firefly-x3": firefly.x3,
+                "--firefly-x4": firefly.x4,
+                "--firefly-x5": firefly.x5,
+                "--firefly-x6": firefly.x6,
+                "--firefly-y0": firefly.y0,
+                "--firefly-y1": firefly.y1,
+                "--firefly-y2": firefly.y2,
+                "--firefly-y3": firefly.y3,
+                "--firefly-y4": firefly.y4,
+                "--firefly-y5": firefly.y5,
+                "--firefly-y6": firefly.y6
+              } as CSSProperties
+            }
+          />
+        ))}
+      </div>
+      <div aria-hidden="true" className="forest-leaf-layer absolute inset-0">
+        {leaves.map((leaf, index) => (
+          <span
+            className={`forest-leaf forest-leaf-${index % 3} absolute`}
+            key={`leaf-${index}`}
+            style={
+              {
+                animationDelay: leaf.delay,
+                left: leaf.left,
+                top: "-14vh",
+                width: leaf.width,
+                height: leaf.height,
+                "--leaf-drift": leaf.drift,
+                "--leaf-duration": leaf.duration,
+                "--leaf-image": `url("${leaf.image}")`,
+                "--leaf-mid-drift": leaf.midDrift,
+                "--leaf-opacity": leaf.opacity,
+                "--leaf-rotate": leaf.rotate,
+                "--leaf-spin": leaf.spin
+              } as CSSProperties
+            }
+          />
+        ))}
+      </div>
       {particles.map((particle, index) => (
         <span
           aria-hidden="true"
@@ -906,9 +1162,9 @@ function App() {
       {isAdminView ? (
         <AnalyticsDashboard />
       ) : (
-        <>
+        <div className="site-flow relative z-10 flex flex-col">
       <section
-        className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 py-[90px] pb-40 pt-36 text-center"
+        className="order-1 relative z-10 flex min-h-screen flex-col items-center justify-center px-6 py-[90px] pb-40 pt-36 text-center"
         id="home"
       >
         <p className="animate-fade-rise light-reactive-text text-sm font-medium uppercase tracking-[0.32em] text-muted-foreground">
@@ -939,7 +1195,7 @@ function App() {
         </div>
       </section>
 
-      <section className="relative z-10 px-6 py-28" id="codex">
+      <section className="order-4 relative z-10 px-6 py-28" id="codex">
         <SectionHeading
           copy="使用 Codex 进行项目细节、进度"
           copyClassName="text-base font-semibold text-[#212121] sm:text-lg"
@@ -951,7 +1207,7 @@ function App() {
           {codexProjects.map((project, index) => (
             <GlassPanel
               className={`codex-reveal-card ${
-                index === 0 ? "codex-reveal-left" : "codex-reveal-right"
+                index % 2 === 0 ? "codex-reveal-left" : "codex-reveal-right"
               } p-6`}
               key={project.title}
             >
@@ -967,7 +1223,7 @@ function App() {
               >
                 {project.title}
               </h3>
-              <p className={`mt-4 leading-relaxed ${index === 1 ? "text-[#fffafa]" : "text-white"}`}>
+              <p className="mt-4 leading-relaxed text-white">
                 {project.summary}
               </p>
               <div className="mt-7 h-2 overflow-hidden rounded-full bg-white/10">
@@ -985,7 +1241,7 @@ function App() {
         </div>
       </section>
 
-      <section className="relative z-10 px-6 py-28" id="skills">
+      <section className="order-2 relative z-10 px-6 py-28" id="skills">
         <SectionHeading
           copy="环境系统测试，后端系统维护，环境搭建，AI工具操作"
           copyClassName="text-base text-white sm:text-lg"
@@ -1010,7 +1266,7 @@ function App() {
         </div>
       </section>
 
-      <section className="relative z-10 px-6 py-28" id="resume">
+      <section className="order-3 relative z-10 px-6 py-28" id="resume">
         <SectionHeading
           copy=""
           eyebrow="Resume"
@@ -1086,7 +1342,7 @@ function App() {
         </div>
       </section>
 
-      <section className="relative z-10 px-6 py-28" id="contact">
+      <section className="order-5 relative z-10 px-6 py-28" id="contact">
         <GlassPanel className="mx-auto max-w-6xl p-8 text-center">
           <p className="text-sm font-medium uppercase tracking-[0.28em] text-muted-foreground">Reach Me</p>
           <h2
@@ -1098,7 +1354,7 @@ function App() {
           <p className="mt-6 text-muted-foreground">17601252443 · 2279113571@qq.com</p>
         </GlassPanel>
       </section>
-        </>
+        </div>
       )}
 
       {contactModalOpen ? <ContactModal onClose={() => setContactModalOpen(false)} /> : null}
