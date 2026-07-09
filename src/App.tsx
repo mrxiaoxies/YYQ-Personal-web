@@ -10,7 +10,7 @@ const navItems = [
   { label: "Reach Me", href: "#contact" }
 ];
 
-const assetUrl = (path: string) => `${import.meta.env.BASE_URL}${path}`;
+const assetUrl = (path: string) => new URL(`${import.meta.env.BASE_URL}${path}`, window.location.href).href;
 
 const seasonBackgrounds = [
   {
