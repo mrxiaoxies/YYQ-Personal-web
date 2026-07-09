@@ -4,9 +4,9 @@ import type { CSSProperties, FormEvent, ReactNode } from "react";
 
 const navItems = [
   { label: "Home", href: "#home" },
+  { label: "Codex", href: "#codex" },
   { label: "Skills", href: "#skills" },
   { label: "Resume", href: "#resume" },
-  { label: "Codex", href: "#codex" },
   { label: "Reach Me", href: "#contact" }
 ];
 
@@ -1195,7 +1195,7 @@ function App() {
         </div>
       </section>
 
-      <section className="order-4 relative z-10 px-6 py-28" id="codex">
+      <section className="order-2 relative z-10 px-6 py-28" id="codex">
         <SectionHeading
           copy="使用 Codex 进行项目细节、进度"
           copyClassName="text-base font-semibold text-[#212121] sm:text-lg"
@@ -1241,7 +1241,7 @@ function App() {
         </div>
       </section>
 
-      <section className="order-2 relative z-10 px-6 py-28" id="skills">
+      <section className="order-3 relative z-10 px-6 py-28" id="skills">
         <SectionHeading
           copy="环境系统测试，后端系统维护，环境搭建，AI工具操作"
           copyClassName="text-base text-white sm:text-lg"
@@ -1266,7 +1266,7 @@ function App() {
         </div>
       </section>
 
-      <section className="order-3 relative z-10 px-6 py-28" id="resume">
+      <section className="order-4 relative z-10 px-6 py-28" id="resume">
         <SectionHeading
           copy=""
           eyebrow="Resume"
