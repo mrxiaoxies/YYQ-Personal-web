@@ -125,14 +125,14 @@ function postAnalyticsEvent(event: "heartbeat" | "pageview", useBeacon = false) 
   };
 
   if (useBeacon && navigator.sendBeacon) {
-    const blob = new Blob([JSON.stringify(payload)], { type: "text/plain;charset=UTF-8" });
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
     navigator.sendBeacon(analyticsEndpoint("/api/visit"), blob);
     return;
   }
 
   void fetch(analyticsEndpoint("/api/visit"), {
     body: JSON.stringify(payload),
-    headers: { "Content-Type": "text/plain;charset=UTF-8" },
+    headers: { "Content-Type": "application/json" },
     keepalive: true,
     method: "POST"
   }).catch(() => {
@@ -1067,13 +1067,6 @@ function AnalyticsDashboard() {
   const [tokenInput, setTokenInput] = useState(token);
 
   const loadStats = useCallback(async (nextToken = token) => {
-    if (!nextToken) {
-      setStats(null);
-      setError("访问统计后台需要管理员口令。请填写 Netlify 环境变量 VISITOR_ADMIN_TOKEN 对应的口令。");
-      setIsLoading(false);
-      return;
-    }
-
     setIsLoading(true);
     setError("");
 
@@ -1085,19 +1078,7 @@ function AnalyticsDashboard() {
 
       if (response.status === 401) {
         setStats(null);
-        setError("后台口令不正确，请重新填写。");
-        return;
-      }
-
-      if (response.status === 403 || response.status === 503) {
-        setStats(null);
-        setError("访问统计尚未启用，或当前站点来源未获授权。请在 Netlify 配置 VISITOR_ADMIN_TOKEN 与 VISITOR_ALLOWED_ORIGINS。");
-        return;
-      }
-
-      if (response.status === 429) {
-        setStats(null);
-        setError("统计请求过于频繁，请稍后再试。");
+        setError("后台口令未填写或不正确。请填写 Netlify 环境变量 VISITOR_ADMIN_TOKEN 对应的口令。");
         return;
       }
 
@@ -1114,11 +1095,6 @@ function AnalyticsDashboard() {
   }, [token]);
 
   useEffect(() => {
-    if (!token) {
-      void loadStats("");
-      return;
-    }
-
     void loadStats();
 
     const timer = window.setInterval(() => {
@@ -1132,17 +1108,13 @@ function AnalyticsDashboard() {
     event.preventDefault();
     const nextToken = tokenInput.trim();
     setToken(nextToken);
-    if (nextToken) {
-      window.sessionStorage.setItem("yyq-admin-token", nextToken);
-    } else {
-      window.sessionStorage.removeItem("yyq-admin-token");
-    }
+    window.sessionStorage.setItem("yyq-admin-token", nextToken);
     void loadStats(nextToken);
   };
 
   const metrics = [
     { detail: "每次页面打开会记录一次", label: "总访问次数", value: formatMetric(stats?.totalVisits) },
-    { detail: "按随机浏览器标识统计，过期后再访会重新计数", label: "匿名访客记录", value: formatMetric(stats?.totalVisitors) },
+    { detail: "按浏览器访客 ID 统计", label: "独立访客", value: formatMetric(stats?.totalVisitors) },
     { detail: "按北京时间自然日统计", label: "今日访问", value: formatMetric(stats?.todayVisits) },
     { detail: `${stats?.onlineWindowSeconds ?? 90} 秒内有心跳的访客`, label: "当前在线", value: formatMetric(stats?.onlineCount) }
   ];
@@ -1150,7 +1122,7 @@ function AnalyticsDashboard() {
   return (
     <section className="relative z-10 min-h-screen px-6 pb-28 pt-32">
       <SectionHeading
-        copy="查看网站访问次数、匿名访客记录和当前在线人数。此入口不在导航中，且仅接受已配置的管理员口令。"
+        copy="实时查看网站访问次数、独立访客和当前在线人数。这个入口不会显示在导航里，访问 #admin 即可进入。"
         copyClassName="text-base font-semibold text-white sm:text-lg"
         eyebrow="Admin Console"
         eyebrowClassName="text-base font-semibold text-white"
@@ -1171,7 +1143,7 @@ function AnalyticsDashboard() {
               aria-label="后台口令"
               className="admin-token-input"
               onChange={(event) => setTokenInput(event.target.value)}
-              placeholder="请输入后台口令"
+              placeholder="后台口令，可选"
               type="password"
               value={tokenInput}
             />
@@ -1787,14 +1759,6 @@ function App() {
       </section>
         </div>
       )}
-
-      {!isAdminView ? (
-        <footer className="relative z-10 border-t border-white/10 px-6 py-8 text-center text-xs leading-relaxed text-forest-muted-foreground sm:text-sm">
-          <p className="mx-auto max-w-3xl">
-            隐私说明：本站为了解访问量和页面使用情况，会记录随机生成的访客与会话标识、访问页面、来源域、浏览器信息及粗略城市/国家；不收集姓名、联系方式或精确位置，不用于广告或对外共享。访问明细在 24 小时后进入清理，访客标识默认最多保留 30 天（站点配置最长 90 天）；仅已授权管理员可访问统计后台。
-          </p>
-        </footer>
-      ) : null}
 
       {contactModalOpen ? <ContactModal onClose={() => setContactModalOpen(false)} /> : null}
     </main>
