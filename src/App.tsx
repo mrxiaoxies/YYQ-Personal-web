@@ -16,26 +16,26 @@ const seasonBackgrounds = [
   {
     key: "spring",
     label: "Spring",
-    image: assetUrl("images/seasons/spring.png"),
-    mobileImage: assetUrl("images/seasons/mobile/spring.jpg")
+    image: assetUrl("images/seasons/spring.webp"),
+    mobileImage: assetUrl("images/seasons/mobile/spring.webp")
   },
   {
     key: "summer",
     label: "Summer",
-    image: assetUrl("images/seasons/summer.png"),
-    mobileImage: assetUrl("images/seasons/mobile/summer.jpg")
+    image: assetUrl("images/seasons/summer.webp"),
+    mobileImage: assetUrl("images/seasons/mobile/summer.webp")
   },
   {
     key: "autumn",
     label: "Autumn",
-    image: assetUrl("images/seasons/autumn.png"),
-    mobileImage: assetUrl("images/seasons/mobile/autumn.jpg")
+    image: assetUrl("images/seasons/autumn.webp"),
+    mobileImage: assetUrl("images/seasons/mobile/autumn.webp")
   },
   {
     key: "winter",
     label: "Winter",
-    image: assetUrl("images/seasons/winter.png"),
-    mobileImage: assetUrl("images/seasons/mobile/winter.jpg")
+    image: assetUrl("images/seasons/winter.webp"),
+    mobileImage: assetUrl("images/seasons/mobile/winter.webp")
   }
 ];
 
@@ -125,14 +125,14 @@ function postAnalyticsEvent(event: "heartbeat" | "pageview", useBeacon = false) 
   };
 
   if (useBeacon && navigator.sendBeacon) {
-    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(payload)], { type: "text/plain;charset=UTF-8" });
     navigator.sendBeacon(analyticsEndpoint("/api/visit"), blob);
     return;
   }
 
   void fetch(analyticsEndpoint("/api/visit"), {
     body: JSON.stringify(payload),
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "text/plain;charset=UTF-8" },
     keepalive: true,
     method: "POST"
   }).catch(() => {
@@ -184,27 +184,206 @@ function useMediaQuery(query: string) {
   return matches;
 }
 
-const codexProjects = [
+type ProjectLink = {
+  href: string;
+  label: string;
+};
+
+type TimelineStatus = "completed" | "current" | "planned";
+
+type TimelineEntry = {
+  date: string;
+  detail: string;
+  status: TimelineStatus;
+  title: string;
+};
+
+type CodexProject = {
+  links: ProjectLink[];
+  milestones: string[];
+  next: string;
+  stage: string;
+  summary: string;
+  timeline: TimelineEntry[];
+  title: string;
+  updated: string;
+  visibility: string;
+};
+
+const codexProjects: CodexProject[] = [
   {
     title: "个人网站",
-    status: "持续优化中",
-    progress: 92,
+    stage: "持续优化中",
+    updated: "2026.07.13",
     summary: "已完成四季滚动背景、液态玻璃面板、项目进度与简历模块，并加入春夏秋冬掉落物和夏季萤火虫路径动效。",
-    points: ["四季背景切换", "花瓣/绿叶/秋叶/雪花", "萤火虫轨迹动效", "移动端体验优化"]
+    milestones: ["四季背景切换", "花瓣/绿叶/秋叶/雪花", "萤火虫轨迹动效", "移动端体验优化", "首屏背景和字体资源压缩"],
+    next: "继续补充项目案例与可公开的测试证据。",
+    links: [{ label: "GitHub 仓库", href: "https://github.com/mrxiaoxies/YYQ-Personal-web" }],
+    visibility: "已公开",
+    timeline: [
+      {
+        date: "2026.06.12",
+        status: "completed",
+        title: "站点基础建立",
+        detail: "建立 GitHub 发布准备、版本记录、操作文档与跨环境 npm 脚本。"
+      },
+      {
+        date: "2026.06.13",
+        status: "completed",
+        title: "移动端四季背景",
+        detail: "新增窄屏季节背景，并优化玻璃、光效与滚动渲染表现。"
+      },
+      {
+        date: "2026.06.18",
+        status: "completed",
+        title: "本地字体与启动校验",
+        detail: "引入中文字体子集，并补充 Node 检测、手机访问提示与检查能力。"
+      },
+      {
+        date: "2026.06.19",
+        status: "completed",
+        title: "Codex 维护工作流",
+        detail: "建立站点更新、校验、发布与部署的维护流程。"
+      },
+      {
+        date: "2026.07.08",
+        status: "completed",
+        title: "四季动效扩展",
+        detail: "接入花瓣、绿叶、秋叶、雪花及夏季萤火虫路径动画。"
+      },
+      {
+        date: "2026.07.09",
+        status: "completed",
+        title: "线上资源路径修复",
+        detail: "修复 GitHub Pages 上掉落物和萤火虫资源的路径问题。"
+      },
+      {
+        date: "2026.07.13",
+        status: "completed",
+        title: "可读性与移动端视觉修正",
+        detail: "增强文字对比度，并让移动端黑雾跟随主标题中心。"
+      },
+      {
+        date: "2026.07.13",
+        status: "completed",
+        title: "首屏资源压缩",
+        detail: "背景改为 WebP，仅挂载当前季与下一季，并按实际使用精简字体。"
+      },
+      {
+        date: "2026.07.13",
+        status: "completed",
+        title: "项目板信息化",
+        detail: "以阶段、更新时间、里程碑、下一步和公开链接替代无口径百分比。"
+      },
+      {
+        date: "日期未定",
+        status: "planned",
+        title: "补充公开测试证据",
+        detail: "继续完善可公开的项目案例与测试证据。"
+      }
+    ]
   },
   {
     title: "自动剪辑项目",
-    status: "任务搭建中",
-    progress: 58,
+    stage: "任务搭建中",
+    updated: "2026.07.13",
     summary: "搭建从素材导入、脚本拆分、片段筛选到字幕封面输出的自动剪辑流程，目标是减少重复剪辑操作并提高成片效率。",
-    points: ["素材导入整理", "脚本/镜头拆分", "自动剪辑流程", "字幕与封面输出"]
+    milestones: ["明确素材导入与整理范围", "梳理脚本与镜头拆分步骤", "定义字幕与封面输出环节"],
+    next: "收敛为可运行的最小流程，并验证字幕与封面输出。",
+    links: [],
+    visibility: "暂未公开",
+    timeline: [
+      {
+        date: "2026.07.08",
+        status: "completed",
+        title: "项目方向记录",
+        detail: "在项目板中记录自动剪辑方向、任务状态与工作流要点。"
+      },
+      {
+        date: "日期未记录（截至 2026.07.13）",
+        status: "completed",
+        title: "素材与脚本流程梳理",
+        detail: "明确素材导入与整理范围，并梳理脚本与镜头拆分步骤。"
+      },
+      {
+        date: "日期未记录（截至 2026.07.13）",
+        status: "completed",
+        title: "输出环节定义",
+        detail: "定义字幕与封面输出环节，作为后续最小流程的边界。"
+      },
+      {
+        date: "2026.07.13 · 状态快照",
+        status: "current",
+        title: "任务搭建中",
+        detail: "当前处于流程搭建阶段；该日期为状态更新时间，不代表项目完成日期。"
+      },
+      {
+        date: "日期未定",
+        status: "planned",
+        title: "最小可运行流程验证",
+        detail: "收敛为可运行流程，并验证字幕与封面输出。"
+      }
+    ]
   },
   {
     title: "微信 AI 好友",
-    status: "框架重启后推进",
-    progress: 64,
-    summary: "PC 桌面微信方向的 AI 好友项目，保留消息读取、AI 回复、手动/自动发送控制边界。",
-    points: ["FastAPI 后端", "桌面微信工作流", "结构化消息字段"]
+    stage: "等待真实通知联调",
+    updated: "2026.05.18",
+    summary: "PC 桌面微信 AI 好友的本地后台已发布；PC-only 接入层原型已编写，但真实通知到草稿的端到端链路仍待联调。",
+    milestones: [
+      "v3.0.0 本地后台发布",
+      "PC-only 微信接入层原型编写",
+      "Windows 通知与聊天复制双重确认",
+      "微信窗口检测与非微信通知过滤",
+      "无抢鼠标控制与自动发送安全闸门"
+    ],
+    next: "用一条真实微信新消息联调“通知识别 → 进入聊天 → 复制确认 → 生成草稿”；自动发送继续保持关闭。",
+    links: [],
+    visibility: "暂未公开",
+    timeline: [
+      {
+        date: "2026.05.17",
+        status: "completed",
+        title: "v3.0.0 本地后台发布",
+        detail: "发布 FastAPI 本地后台，提供消息、草稿、AI 回复、风险拦截与自动监听相关接口，并完成语法编译与版本导入检查。"
+      },
+      {
+        date: "2026.05.17–05.18",
+        status: "completed",
+        title: "PC-only 接入层原型编写",
+        detail: "将集中式微信实现拆分为通知、窗口、剪贴板、解析、输入与工作流模块；保留兼容入口与已发送消息去重，代码尚待提交与端到端联调。"
+      },
+      {
+        date: "2026.05.17",
+        status: "completed",
+        title: "双确认与发送闸门",
+        detail: "只有 Windows 通知与当前聊天复制都确认时才允许自动发送；其他来源仅填入草稿或展示，避免误发。"
+      },
+      {
+        date: "2026.05.17",
+        status: "completed",
+        title: "窗口检测与通知过滤修复",
+        detail: "修复窗口枚举与尺寸阈值问题，识别到 Weixin 窗口；同时收紧通知来源过滤，不再把浏览器或系统通知误判为微信消息。"
+      },
+      {
+        date: "2026.05.18",
+        status: "completed",
+        title: "无抢鼠标交互改造",
+        detail: "移除真实鼠标移动与点击；自动监听空闲时仅检查 Windows 通知，发现微信通知后才进入聊天复制确认。"
+      },
+      {
+        date: "2026.05.18 · 状态快照",
+        status: "current",
+        title: "等待真实通知联调",
+        detail: "微信窗口检测正常，监听运行且自动发送关闭；尚未捕获可用的真实微信通知，消息、草稿与完整链路都未产生成功记录。"
+      },
+      {
+        date: "收到真实消息后",
+        status: "planned",
+        title: "验证完整消息链路",
+        detail: "验证通知识别、进入聊天、复制确认、字段解析与生成草稿，并在双确认前不自动发送。"
+      }
+    ]
   }
 ];
 
@@ -300,9 +479,13 @@ const resumeCompanies = [
   }
 ];
 
-function FloatingForest() {
+function FloatingForest({ fixedSeason }: { fixedSeason?: FallingSpriteSetKey }) {
   const isCompactVisual = useMediaQuery("(max-width: 767px)");
-  const layerRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const fixedSeasonIndex = fixedSeason ? Math.max(seasonBackgrounds.findIndex((season) => season.key === fixedSeason), 0) : 0;
+  const layerRefs = useRef(new Map<number, HTMLImageElement>());
+  const [activeSeasonStart, setActiveSeasonStart] = useState(fixedSeasonIndex);
+  const activeSeasonStartRef = useRef(fixedSeasonIndex);
+  const seasonBlendRef = useRef(0);
   const [fallingSpriteSetKey, setFallingSpriteSetKey] = useState<FallingSpriteSetKey>("spring");
   const [isSummerBackground, setIsSummerBackground] = useState(false);
   const fallingSpriteSetRef = useRef<FallingSpriteSetKey>("spring");
@@ -446,6 +629,27 @@ function FloatingForest() {
   );
 
   useEffect(() => {
+    if (fixedSeason) {
+      const nextFallingSpriteSetKey = fixedSeason;
+      const nextIsSummerBackground = fixedSeason === "summer";
+
+      activeSeasonStartRef.current = fixedSeasonIndex;
+      seasonBlendRef.current = 0;
+      setActiveSeasonStart(fixedSeasonIndex);
+
+      if (fallingSpriteSetRef.current !== nextFallingSpriteSetKey) {
+        fallingSpriteSetRef.current = nextFallingSpriteSetKey;
+        setFallingSpriteSetKey(nextFallingSpriteSetKey);
+      }
+
+      if (isSummerBackgroundRef.current !== nextIsSummerBackground) {
+        isSummerBackgroundRef.current = nextIsSummerBackground;
+        setIsSummerBackground(nextIsSummerBackground);
+      }
+
+      return;
+    }
+
     let frameId = 0;
 
     const updateSeasonLayers = () => {
@@ -472,16 +676,20 @@ function FloatingForest() {
         setIsSummerBackground(nextIsSummerBackground);
       }
 
-      seasonBackgrounds.forEach((_, index) => {
-        const layer = layerRefs.current[index];
-        if (!layer) return;
+      const scaledProgress = scrollProgress * (seasonBackgrounds.length - 1);
+      const nextActiveSeasonStart = Math.min(Math.floor(scaledProgress), seasonBackgrounds.length - 2);
+      const nextSeasonBlend = scaledProgress - nextActiveSeasonStart;
+      seasonBlendRef.current = nextSeasonBlend;
 
-        const seasonPosition = index / Math.max(seasonBackgrounds.length - 1, 1);
-        const distance = Math.abs(scrollProgress - seasonPosition);
-        const opacity = Math.max(0, 1 - distance * 3.35);
+      if (activeSeasonStartRef.current !== nextActiveSeasonStart) {
+        activeSeasonStartRef.current = nextActiveSeasonStart;
+        setActiveSeasonStart(nextActiveSeasonStart);
+      }
 
-        layer.style.opacity = opacity.toFixed(3);
-      });
+      const currentLayer = layerRefs.current.get(nextActiveSeasonStart);
+      const nextLayer = layerRefs.current.get(nextActiveSeasonStart + 1);
+      if (currentLayer) currentLayer.style.opacity = (1 - nextSeasonBlend).toFixed(3);
+      if (nextLayer) nextLayer.style.opacity = nextSeasonBlend.toFixed(3);
 
       frameId = 0;
     };
@@ -500,26 +708,39 @@ function FloatingForest() {
       window.removeEventListener("scroll", requestSeasonUpdate);
       window.removeEventListener("resize", requestSeasonUpdate);
     };
-  }, [isCompactVisual]);
+  }, [fixedSeason, fixedSeasonIndex, isCompactVisual]);
+
+  const visibleSeasonIndexes = fixedSeason ? [fixedSeasonIndex] : [activeSeasonStart, activeSeasonStart + 1];
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[1] overflow-hidden">
-      {seasonBackgrounds.map((season, index) => (
-          <div
+      {visibleSeasonIndexes.map((index) => {
+        const season = seasonBackgrounds[index];
+        const isCurrentLayer = index === activeSeasonStart;
+        const opacity = fixedSeason ? 1 : isCurrentLayer ? 1 - seasonBlendRef.current : seasonBlendRef.current;
+        const isInitialSeason = fixedSeason ? true : index === 0;
+
+        return (
+          <img
+            alt=""
             aria-hidden="true"
-            className={`season-background season-background-${season.key} absolute inset-0`}
+            className={`season-background season-background-${season.key} absolute inset-0 h-full w-full object-cover`}
+            decoding="async"
+            fetchPriority={isInitialSeason ? "high" : "low"}
             key={season.key}
+            loading={isInitialSeason ? "eager" : "lazy"}
             ref={(node) => {
-              layerRefs.current[index] = node;
+              if (node) {
+                layerRefs.current.set(index, node);
+              } else {
+                layerRefs.current.delete(index);
+              }
             }}
-            style={
-              {
-                backgroundImage: `url("${isCompactVisual ? season.mobileImage : season.image}")`,
-                opacity: index === 0 ? 1 : 0
-              } as CSSProperties
-            }
+            src={isCompactVisual ? season.mobileImage : season.image}
+            style={{ opacity }}
           />
-      ))}
+        );
+      })}
       <div className="forest-depth absolute inset-0" />
       <div className="forest-light absolute inset-0" />
       <div className="forest-mist absolute inset-0" />
@@ -743,8 +964,8 @@ function SectionHeading({
   eyebrow,
   title,
   copy,
-  eyebrowClassName = "text-sm font-medium text-muted-foreground",
-  copyClassName = "text-base text-muted-foreground sm:text-lg"
+  eyebrowClassName = "text-sm font-medium text-forest-muted-foreground",
+  copyClassName = "text-base text-forest-muted-foreground sm:text-lg"
 }: {
   eyebrow: string;
   title: string;
@@ -846,6 +1067,13 @@ function AnalyticsDashboard() {
   const [tokenInput, setTokenInput] = useState(token);
 
   const loadStats = useCallback(async (nextToken = token) => {
+    if (!nextToken) {
+      setStats(null);
+      setError("访问统计后台需要管理员口令。请填写 Netlify 环境变量 VISITOR_ADMIN_TOKEN 对应的口令。");
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError("");
 
@@ -857,7 +1085,19 @@ function AnalyticsDashboard() {
 
       if (response.status === 401) {
         setStats(null);
-        setError("后台口令未填写或不正确。请填写 Netlify 环境变量 VISITOR_ADMIN_TOKEN 对应的口令。");
+        setError("后台口令不正确，请重新填写。");
+        return;
+      }
+
+      if (response.status === 403 || response.status === 503) {
+        setStats(null);
+        setError("访问统计尚未启用，或当前站点来源未获授权。请在 Netlify 配置 VISITOR_ADMIN_TOKEN 与 VISITOR_ALLOWED_ORIGINS。");
+        return;
+      }
+
+      if (response.status === 429) {
+        setStats(null);
+        setError("统计请求过于频繁，请稍后再试。");
         return;
       }
 
@@ -874,6 +1114,11 @@ function AnalyticsDashboard() {
   }, [token]);
 
   useEffect(() => {
+    if (!token) {
+      void loadStats("");
+      return;
+    }
+
     void loadStats();
 
     const timer = window.setInterval(() => {
@@ -887,13 +1132,17 @@ function AnalyticsDashboard() {
     event.preventDefault();
     const nextToken = tokenInput.trim();
     setToken(nextToken);
-    window.sessionStorage.setItem("yyq-admin-token", nextToken);
+    if (nextToken) {
+      window.sessionStorage.setItem("yyq-admin-token", nextToken);
+    } else {
+      window.sessionStorage.removeItem("yyq-admin-token");
+    }
     void loadStats(nextToken);
   };
 
   const metrics = [
     { detail: "每次页面打开会记录一次", label: "总访问次数", value: formatMetric(stats?.totalVisits) },
-    { detail: "按浏览器访客 ID 统计", label: "独立访客", value: formatMetric(stats?.totalVisitors) },
+    { detail: "按随机浏览器标识统计，过期后再访会重新计数", label: "匿名访客记录", value: formatMetric(stats?.totalVisitors) },
     { detail: "按北京时间自然日统计", label: "今日访问", value: formatMetric(stats?.todayVisits) },
     { detail: `${stats?.onlineWindowSeconds ?? 90} 秒内有心跳的访客`, label: "当前在线", value: formatMetric(stats?.onlineCount) }
   ];
@@ -901,7 +1150,7 @@ function AnalyticsDashboard() {
   return (
     <section className="relative z-10 min-h-screen px-6 pb-28 pt-32">
       <SectionHeading
-        copy="实时查看网站访问次数、独立访客和当前在线人数。这个入口不会显示在导航里，访问 #admin 即可进入。"
+        copy="查看网站访问次数、匿名访客记录和当前在线人数。此入口不在导航中，且仅接受已配置的管理员口令。"
         copyClassName="text-base font-semibold text-white sm:text-lg"
         eyebrow="Admin Console"
         eyebrowClassName="text-base font-semibold text-white"
@@ -911,7 +1160,7 @@ function AnalyticsDashboard() {
       <div className="mx-auto max-w-6xl space-y-5">
         <GlassPanel className="admin-toolbar p-5">
           <div>
-            <p className="text-sm uppercase tracking-[0.24em] text-muted-foreground">Live Status</p>
+            <p className="text-sm uppercase tracking-[0.24em] text-forest-muted-foreground">Live Status</p>
             <p className="mt-2 text-sm text-foreground">
               最新刷新：{isLoading ? "正在刷新" : formatDateTime(stats?.generatedAt)}
             </p>
@@ -922,11 +1171,11 @@ function AnalyticsDashboard() {
               aria-label="后台口令"
               className="admin-token-input"
               onChange={(event) => setTokenInput(event.target.value)}
-              placeholder="后台口令，可选"
+              placeholder="请输入后台口令"
               type="password"
               value={tokenInput}
             />
-            <Button className="liquid-glass light-reactive rounded-full px-5 py-2 text-sm text-foreground" type="submit">
+            <Button className="liquid-glass forest-control light-reactive rounded-full px-5 py-2 text-sm text-foreground" type="submit" variant="ghost">
               刷新统计
             </Button>
           </form>
@@ -937,9 +1186,9 @@ function AnalyticsDashboard() {
         <div className="grid gap-5 md:grid-cols-4">
           {metrics.map((metric) => (
             <GlassPanel className="admin-metric-card p-5" key={metric.label}>
-              <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">{metric.label}</p>
+              <p className="text-sm uppercase tracking-[0.2em] text-forest-muted-foreground">{metric.label}</p>
               <p className="mt-4 text-4xl font-semibold text-foreground">{metric.value}</p>
-              <p className="mt-3 text-sm text-muted-foreground">{metric.detail}</p>
+              <p className="mt-3 text-sm text-forest-muted-foreground">{metric.detail}</p>
             </GlassPanel>
           ))}
         </div>
@@ -947,10 +1196,10 @@ function AnalyticsDashboard() {
         <GlassPanel className="p-5">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-[0.24em] text-muted-foreground">Online Sessions</p>
+              <p className="text-sm uppercase tracking-[0.24em] text-forest-muted-foreground">Online Sessions</p>
               <h3 className="mt-3 text-3xl font-semibold text-foreground">当前在线访客</h3>
             </div>
-            <p className="text-sm text-muted-foreground">最近访问：{formatDateTime(stats?.lastVisitAt)}</p>
+            <p className="text-sm text-forest-muted-foreground">最近访问：{formatDateTime(stats?.lastVisitAt)}</p>
           </div>
 
           <div className="admin-session-list mt-6">
@@ -959,23 +1208,132 @@ function AnalyticsDashboard() {
                 <div className="admin-session-row" key={`${visitor.sessionId}-${visitor.lastSeenAt}`}>
                   <div>
                     <p className="font-semibold text-foreground">访客 {visitor.sessionId}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{visitor.page || "/"}</p>
+                    <p className="mt-1 text-sm text-forest-muted-foreground">{visitor.page || "/"}</p>
                   </div>
                   <div>
                     <p className="font-semibold text-foreground">{formatDateTime(visitor.lastSeenAt)}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="mt-1 text-sm text-forest-muted-foreground">
                       {visitor.country || "未知地区"}{visitor.city ? ` · ${visitor.city}` : ""} · {visitor.pageViews} 次页面访问
                     </p>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="py-8 text-center text-sm font-semibold text-muted-foreground">当前没有在线访客。</p>
+              <p className="py-8 text-center text-sm font-semibold text-forest-muted-foreground">当前没有在线访客。</p>
             )}
           </div>
         </GlassPanel>
       </div>
     </section>
+  );
+}
+
+function ProjectTimelinePage() {
+  const statusLabels: Record<TimelineStatus, string> = {
+    completed: "已完成",
+    current: "当前记录",
+    planned: "待推进"
+  };
+  const statusClasses: Record<TimelineStatus, string> = {
+    completed: "border-emerald-200/30 bg-emerald-200/10 text-emerald-50",
+    current: "border-sky-200/30 bg-sky-200/10 text-sky-50",
+    planned: "border-amber-100/30 bg-amber-100/10 text-amber-50"
+  };
+  const dotClasses: Record<TimelineStatus, string> = {
+    completed: "bg-emerald-100",
+    current: "bg-sky-100",
+    planned: "bg-amber-100"
+  };
+
+  return (
+    <div className="relative z-10 min-h-screen px-6 pb-28 pt-36">
+      <section className="mx-auto max-w-6xl text-center">
+        <p className="text-sm font-medium uppercase tracking-[0.32em] text-forest-muted-foreground">Codex Project Timeline</p>
+        <h1 className="mt-5 text-5xl font-normal tracking-[-1.2px] text-foreground sm:text-7xl" style={{ fontFamily: "var(--font-cjk-display)" }}>
+          项目进度
+        </h1>
+        <p className="mx-auto mt-6 max-w-3xl text-base leading-relaxed text-forest-muted-foreground sm:text-lg">
+          按时间与里程碑逐项记录 Codex 项目。标为“状态快照”的日期仅表示记录更新时间，不代表该项目在当天完成。
+        </p>
+        <div className="mt-8 flex flex-wrap justify-center gap-2 text-xs">
+          <span className="rounded-full border border-emerald-200/30 bg-emerald-200/10 px-3 py-1 text-emerald-50">已完成</span>
+          <span className="rounded-full border border-sky-200/30 bg-sky-200/10 px-3 py-1 text-sky-50">当前记录</span>
+          <span className="rounded-full border border-amber-100/30 bg-amber-100/10 px-3 py-1 text-amber-50">待推进</span>
+        </div>
+        <Button asChild className="liquid-glass forest-control light-reactive mt-8 rounded-full px-6 py-2.5 text-sm text-foreground" type="button" variant="ghost">
+          <a href="#codex">返回项目板</a>
+        </Button>
+      </section>
+
+      <div className="mx-auto mt-16 grid max-w-6xl gap-7">
+        {codexProjects.map((project) => (
+          <GlassPanel className="p-6 sm:p-8" key={project.title}>
+            <header className="grid gap-6 border-b border-white/10 pb-7 md:grid-cols-[1fr_auto] md:items-start">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-forest-muted-foreground">Codex Project</p>
+                <h2 className="mt-4 text-4xl leading-tight text-foreground sm:text-5xl" style={{ fontFamily: "var(--font-cjk-display)" }}>
+                  {project.title}
+                </h2>
+                <p className="mt-4 max-w-3xl leading-relaxed text-forest-muted-foreground">{project.summary}</p>
+              </div>
+              <dl className="grid grid-cols-2 gap-3 text-left md:min-w-[260px]">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-forest-muted-foreground">当前阶段</dt>
+                  <dd className="mt-2 text-sm text-foreground">{project.stage}</dd>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-forest-muted-foreground">更新时间</dt>
+                  <dd className="mt-2 text-sm text-foreground">{project.updated}</dd>
+                </div>
+              </dl>
+            </header>
+
+            <div className="mt-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-forest-muted-foreground">时间轴 / 里程碑</p>
+              <div className="relative mt-6">
+                <div aria-hidden="true" className="absolute bottom-6 left-[7px] top-6 w-px bg-white/15" />
+                <ol className="space-y-6">
+                  {project.timeline.map((entry) => (
+                    <li className="relative pl-10" key={`${entry.date}-${entry.title}`}>
+                      <span aria-hidden="true" className={`absolute left-0 top-1.5 h-[15px] w-[15px] rounded-full border-2 border-[#18332c] ${dotClasses[entry.status]}`} />
+                      <article className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <p className="text-xs font-semibold tracking-[0.12em] text-forest-muted-foreground">{entry.date}</p>
+                          <span className={`rounded-full border px-3 py-1 text-xs ${statusClasses[entry.status]}`}>{statusLabels[entry.status]}</span>
+                        </div>
+                        <h3 className="mt-4 text-xl font-medium text-foreground">{entry.title}</h3>
+                        <p className="mt-2 text-sm leading-relaxed text-forest-muted-foreground">{entry.detail}</p>
+                      </article>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+
+            <footer className="mt-8 grid gap-4 border-t border-white/10 pt-7 sm:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest-muted-foreground">下一步</p>
+                <p className="mt-3 text-sm leading-relaxed text-foreground">{project.next}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest-muted-foreground">演示 / GitHub</p>
+                {project.links.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {project.links.map((link) => (
+                      <a className="text-sm text-foreground underline decoration-white/40 underline-offset-4 transition hover:decoration-white" href={link.href} key={link.href} rel="noreferrer" target="_blank">
+                        {link.label} →
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm leading-relaxed text-forest-muted-foreground">暂无公开演示或仓库（{project.visibility}）</p>
+                )}
+              </div>
+            </footer>
+          </GlassPanel>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -1059,7 +1417,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
               <p className="text-sm uppercase tracking-[0.24em] text-muted-foreground" id="contact-dialog-title">
                 WeChat
               </p>
-              <p className="mt-1 text-2xl font-semibold text-foreground">中国大陆</p>
+              <p className="mt-1 text-2xl font-semibold">中国大陆</p>
             </div>
           </div>
 
@@ -1094,21 +1452,55 @@ function ContactModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+type AppView = "admin" | "projects" | "site";
+
+function getAppView(): AppView {
+  if (typeof window === "undefined") return "site";
+  if (window.location.hash === "#admin") return "admin";
+  if (window.location.hash === "#projects") return "projects";
+  return "site";
+}
+
 function App() {
   const [openCompany, setOpenCompany] = useState(0);
   const [contactModalOpen, setContactModalOpen] = useState(false);
-  const [isAdminView, setIsAdminView] = useState(() => typeof window !== "undefined" && window.location.hash === "#admin");
+  const [appView, setAppView] = useState<AppView>(getAppView);
+  const isAdminView = appView === "admin";
+  const isProjectTimelineView = appView === "projects";
 
   useVisitorAnalytics(isAdminView);
 
   useEffect(() => {
-    const updateView = () => setIsAdminView(window.location.hash === "#admin");
+    const updateView = () => setAppView(getAppView());
 
     window.addEventListener("hashchange", updateView);
     updateView();
 
     return () => window.removeEventListener("hashchange", updateView);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      if (appView === "projects") {
+        window.scrollTo({ top: 0, behavior: "auto" });
+        return;
+      }
+
+      if (appView !== "site") return;
+
+      const targetId = window.location.hash.slice(1);
+      if (!targetId || targetId === "home") {
+        window.scrollTo({ top: 0, behavior: "auto" });
+        return;
+      }
+
+      document.getElementById(targetId)?.scrollIntoView({ block: "start", behavior: "auto" });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [appView]);
 
   useEffect(() => {
     if (!contactModalOpen) return;
@@ -1124,7 +1516,7 @@ function App() {
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
-      <FloatingForest />
+      <FloatingForest fixedSeason={isProjectTimelineView ? "spring" : undefined} />
       <DynamicLightRig />
 
       <nav className="fixed inset-x-0 top-0 z-20 mx-auto flex max-w-7xl flex-row items-center justify-between px-6 py-5 sm:px-8">
@@ -1136,24 +1528,31 @@ function App() {
           Yang Yeqi<sup className="text-xs">®</sup>
         </a>
 
-        <div className="liquid-glass light-reactive hidden items-center gap-7 rounded-full px-6 py-3 md:flex">
-          {navItems.map((item, index) => (
-            <a
-              className={`text-sm transition-colors hover:text-foreground ${
-                index === 0 ? "text-foreground" : "text-muted-foreground"
-              }`}
-              href={item.href}
-              key={item.label}
-            >
-              {item.label}
-            </a>
-          ))}
-        </div>
+        {isProjectTimelineView ? (
+          <a className="liquid-glass forest-control light-reactive hidden rounded-full px-6 py-3 text-sm text-foreground transition-transform hover:scale-[1.03] md:inline-flex" href="#codex">
+            返回项目板
+          </a>
+        ) : (
+          <div className="liquid-glass forest-control light-reactive hidden items-center gap-7 rounded-full px-6 py-3 md:flex">
+            {navItems.map((item, index) => (
+              <a
+                className={`text-sm transition-colors hover:text-foreground ${
+                  index === 0 ? "text-foreground" : "text-forest-muted-foreground"
+                }`}
+                href={item.href}
+                key={item.label}
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
+        )}
 
         <Button
-          className="liquid-glass light-reactive rounded-full px-6 py-2.5 text-sm text-foreground transition-transform hover:scale-[1.03]"
+          className="liquid-glass forest-control light-reactive rounded-full px-6 py-2.5 text-sm text-foreground transition-transform hover:scale-[1.03]"
           onClick={() => setContactModalOpen(true)}
           type="button"
+          variant="ghost"
         >
           联系我
         </Button>
@@ -1161,13 +1560,15 @@ function App() {
 
       {isAdminView ? (
         <AnalyticsDashboard />
+      ) : isProjectTimelineView ? (
+        <ProjectTimelinePage />
       ) : (
         <div className="site-flow relative z-10 flex flex-col">
       <section
-        className="order-1 relative z-10 flex min-h-screen flex-col items-center justify-center px-6 py-[90px] pb-40 pt-36 text-center"
+        className="hero-contrast order-1 relative z-10 flex min-h-screen flex-col items-center justify-center px-6 py-[90px] pb-40 pt-36 text-center"
         id="home"
       >
-        <p className="animate-fade-rise light-reactive-text text-sm font-medium uppercase tracking-[0.32em] text-muted-foreground">
+        <p className="animate-fade-rise light-reactive-text text-sm font-medium uppercase tracking-[0.32em] text-forest-muted-foreground">
           Software Test Engineer / AI Workflow Builder
         </p>
         <h1
@@ -1177,17 +1578,16 @@ function App() {
           }}
         >
           <span className="block">把复杂流程</span>
-          <em className="block not-italic text-muted-foreground">测试到安静可靠。</em>
+          <em className="block not-italic text-forest-muted-foreground">测试到安静可靠。</em>
         </h1>
-        <p className="animate-fade-rise-delay light-reactive-text mt-8 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-          关注银行业务测试、接口与数据验证、Linux 环境搭建、灰盒测试和 AI 工具探索。
-          这个网站用动态森林和玻璃界面展示我的 Codex 项目进度与真实工作履历。
+        <p className="animate-fade-rise-delay light-reactive-text mt-8 max-w-2xl text-base leading-relaxed text-forest-muted-foreground sm:text-lg">
+          杨烨齐｜软件测试工程师 · Linux 环境搭建 / 接口 / 数据验证
         </p>
         <div className="animate-fade-rise-delay-2 mt-12 flex flex-wrap justify-center gap-4">
-          <Button className="liquid-glass light-reactive cursor-pointer rounded-full px-10 py-5 text-base text-foreground transition-transform hover:scale-[1.03]">
-            查看项目进度
+          <Button asChild className="liquid-glass forest-control light-reactive cursor-pointer rounded-full px-10 py-5 text-base text-foreground transition-transform hover:scale-[1.03]" variant="ghost">
+            <a href="#projects">查看项目进度</a>
           </Button>
-          <Button asChild className="liquid-glass light-reactive cursor-pointer rounded-full px-10 py-5 text-base text-foreground transition-transform hover:scale-[1.03]">
+          <Button asChild className="liquid-glass forest-control light-reactive cursor-pointer rounded-full px-10 py-5 text-base text-foreground transition-transform hover:scale-[1.03]" variant="ghost">
             <a download="杨烨齐简历.docx" href={assetUrl("files/yang-yeqi-resume.docx")}>
               下载简历信息
             </a>
@@ -1198,9 +1598,9 @@ function App() {
       <section className="order-2 relative z-10 px-6 py-28" id="codex">
         <SectionHeading
           copy="使用 Codex 进行项目细节、进度"
-          copyClassName="text-base font-semibold text-[#212121] sm:text-lg"
+          copyClassName="text-base font-semibold text-forest-muted-foreground sm:text-lg"
           eyebrow="Codex Workbench"
-          eyebrowClassName="text-base font-semibold text-muted-foreground"
+          eyebrowClassName="text-base font-semibold text-forest-muted-foreground"
           title="项目进度板"
         />
         <div className="mx-auto grid max-w-6xl gap-5 md:grid-cols-2">
@@ -1211,11 +1611,15 @@ function App() {
               } p-6`}
               key={project.title}
             >
-              <div className="flex items-center justify-between gap-4">
-                <span className="rounded-full border border-white/15 px-3 py-1 text-xs text-muted-foreground">
-                  {project.status}
-                </span>
-                <span className="text-sm text-foreground">{project.progress}%</span>
+              <div className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest-muted-foreground">当前阶段</p>
+                  <p className="mt-2 text-sm text-foreground">{project.stage}</p>
+                </div>
+                <div className="sm:text-right">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest-muted-foreground">更新时间</p>
+                  <p className="mt-2 text-sm text-foreground">{project.updated}</p>
+                </div>
               </div>
               <h3
                 className="mt-8 text-4xl font-normal tracking-[-0.8px]"
@@ -1226,15 +1630,42 @@ function App() {
               <p className="mt-4 leading-relaxed text-white">
                 {project.summary}
               </p>
-              <div className="mt-7 h-2 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full rounded-full bg-white/70" style={{ width: `${project.progress}%` }} />
+              <div className="mt-7">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest-muted-foreground">已完成里程碑</p>
+                <ul className="mt-3 grid gap-2 text-sm text-forest-muted-foreground">
+                  {project.milestones.map((milestone) => (
+                    <li className="flex gap-3" key={milestone}>
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/60" />
+                      <span>{milestone}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <div className="mt-7 flex flex-wrap gap-2">
-                {project.points.map((point) => (
-                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white" key={point}>
-                    {point}
-                  </span>
-                ))}
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest-muted-foreground">下一步</p>
+                  <p className="mt-2 text-sm leading-relaxed text-foreground">{project.next}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest-muted-foreground">演示 / GitHub</p>
+                  {project.links.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-3">
+                      {project.links.map((link) => (
+                        <a
+                          className="text-sm text-foreground underline decoration-white/40 underline-offset-4 transition hover:decoration-white"
+                          href={link.href}
+                          key={link.href}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          {link.label} →
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm leading-relaxed text-forest-muted-foreground">暂无公开演示或仓库（{project.visibility}）</p>
+                  )}
+                </div>
               </div>
             </GlassPanel>
           ))}
@@ -1285,7 +1716,7 @@ function App() {
                 type="button"
               >
                 <div>
-                  <p className="text-sm text-muted-foreground">{company.period}</p>
+                  <p className="text-sm text-forest-muted-foreground">{company.period}</p>
                   <h3
                     className="company-title mt-3 text-3xl tracking-wide"
                     style={{
@@ -1299,8 +1730,8 @@ function App() {
                   <p className="mt-2 text-sm text-foreground">{company.role}</p>
                 </div>
                 <div className="resume-company-summary self-center">
-                  <p className="resume-company-summary-text text-sm uppercase tracking-[0.28em] text-muted-foreground">Company Group</p>
-                  <p className="resume-company-summary-text mt-2 text-base leading-relaxed text-muted-foreground">
+                  <p className="resume-company-summary-text text-sm uppercase tracking-[0.28em] text-forest-muted-foreground">Company Group</p>
+                  <p className="resume-company-summary-text mt-2 text-base leading-relaxed text-forest-muted-foreground">
                     {company.projects.length} 个项目模块，点击展开查看项目职责和细节。
                   </p>
                 </div>
@@ -1319,12 +1750,12 @@ function App() {
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <h4 className="resume-project-title text-[25px] font-semibold text-foreground">{project.title}</h4>
-                        <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-muted-foreground">
+                        <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-forest-muted-foreground">
                           {project.time}
                         </span>
                       </div>
-                      <p className="resume-project-summary mt-3 font-semibold leading-relaxed text-[#3b3a3a]">{project.summary}</p>
-                      <ul className="resume-project-points mt-4 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+                      <p className="resume-project-summary mt-3 font-semibold leading-relaxed text-forest-muted-foreground">{project.summary}</p>
+                      <ul className="resume-project-points mt-4 grid gap-2 text-sm text-forest-muted-foreground sm:grid-cols-2">
                         {project.points.map((point) => (
                           <li className="flex gap-3" key={point}>
                             <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/60" />
@@ -1344,18 +1775,26 @@ function App() {
 
       <section className="order-5 relative z-10 px-6 py-28" id="contact">
         <GlassPanel className="mx-auto max-w-6xl p-8 text-center">
-          <p className="text-sm font-medium uppercase tracking-[0.28em] text-muted-foreground">Reach Me</p>
+          <p className="text-sm font-medium uppercase tracking-[0.28em] text-forest-muted-foreground">Reach Me</p>
           <h2
             className="mt-5 text-5xl font-normal tracking-[-1.2px] sm:text-7xl"
             style={{ fontFamily: "var(--font-cjk-display)" }}
           >
             上海市普陀区 · 杨烨齐
           </h2>
-          <p className="mt-6 text-muted-foreground">17601252443 · 2279113571@qq.com</p>
+          <p className="mt-6 text-forest-muted-foreground">17601252443 · 2279113571@qq.com</p>
         </GlassPanel>
       </section>
         </div>
       )}
+
+      {!isAdminView ? (
+        <footer className="relative z-10 border-t border-white/10 px-6 py-8 text-center text-xs leading-relaxed text-forest-muted-foreground sm:text-sm">
+          <p className="mx-auto max-w-3xl">
+            隐私说明：本站为了解访问量和页面使用情况，会记录随机生成的访客与会话标识、访问页面、来源域、浏览器信息及粗略城市/国家；不收集姓名、联系方式或精确位置，不用于广告或对外共享。访问明细在 24 小时后进入清理，访客标识默认最多保留 30 天（站点配置最长 90 天）；仅已授权管理员可访问统计后台。
+          </p>
+        </footer>
+      ) : null}
 
       {contactModalOpen ? <ContactModal onClose={() => setContactModalOpen(false)} /> : null}
     </main>

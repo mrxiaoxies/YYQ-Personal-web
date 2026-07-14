@@ -191,7 +191,22 @@ npx netlify deploy --prod
 
 如果显示未登录，需要先完成 Netlify 登录，或配置 `NETLIFY_AUTH_TOKEN`。
 
-## 13. 发布检查清单
+## 13. 访问统计安全配置
+
+访问统计由 Netlify Functions 提供。统计后台在未配置管理员口令时默认拒绝；统计写入在未配置允许来源时默认拒绝：
+
+- `VISITOR_ADMIN_TOKEN`：随机且足够长的管理员口令。不要使用 `VITE_` 前缀，也不要写入仓库或前端环境变量。
+- `VISITOR_ALLOWED_ORIGINS`：允许写入 `/api/visit` 的站点 Origin，以英文逗号分隔，不能带路径。例如 GitHub Pages 使用 `https://mrxiaoxies.github.io`，Netlify 站点使用 `https://<your-site>.netlify.app`。浏览器中的后台读取请求也会按该白名单返回 CORS 响应。
+- `VISITOR_RETENTION_DAYS`：可选，访客随机标识的保留天数，默认 30 天，范围 1–90 天。会话明细会在 24 小时后由每小时运行的清理函数删除。
+
+函数级限流固定为每个 IP / 域名组合每分钟 30 次，超过后 Netlify 返回 `429`。部署后在 Netlify deploy log 的 post-processing 阶段确认 rate-limit 规则已生效，并手动验证：
+
+- 未配置或错误的管理员口令不能读取 `/api/stats`。
+- 不在 `VISITOR_ALLOWED_ORIGINS` 内的页面不能写入 `/api/visit`。
+- 允许来源可正常写入，且连续超过限额会得到 `429`。
+- `analytics-retention` 显示为 Scheduled Function，并可在 Functions 页面手动执行一次清理验证。
+
+## 14. 发布检查清单
 
 - `npm run typecheck` 通过
 - `npm run build` 通过
