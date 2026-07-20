@@ -1,10 +1,12 @@
 import { Button } from "@/components/ui/button";
+import { Download, FileSpreadsheet } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
 
 const navItems = [
   { label: "Home", href: "#home" },
   { label: "Codex", href: "#codex" },
+  { label: "Showcase", href: "#showcase" },
   { label: "Skills", href: "#skills" },
   { label: "Resume", href: "#resume" },
   { label: "Reach Me", href: "#contact" }
@@ -1642,9 +1644,51 @@ function App() {
             </GlassPanel>
           ))}
         </div>
+
       </section>
 
-      <section className="order-3 relative z-10 px-6 py-28" id="skills">
+      <section className="order-3 relative z-10 px-6 py-28" id="showcase">
+        <SectionHeading
+          copy="以标准格式归档网站测试用例，覆盖首页、导航与页面展示。"
+          copyClassName="text-base text-white sm:text-lg"
+          eyebrow="Work Showcase"
+          eyebrowClassName="text-[17px] font-semibold text-white"
+          title="项目展示"
+        />
+        <div className="mx-auto max-w-6xl">
+          <GlassPanel className="p-6 sm:p-8">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-5">
+                <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl border border-emerald-100/30 bg-emerald-300/10 text-emerald-100 shadow-inner">
+                  <FileSpreadsheet aria-hidden="true" className="size-8" strokeWidth={1.7} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-3xl font-normal tracking-[-0.6px] text-foreground" style={{ fontFamily: "var(--font-cjk-display)" }}>
+                    网站用例
+                  </h3>
+                  <p className="mt-3 leading-relaxed text-forest-muted-foreground">
+                    YYQ 个人网站测试用例 · 73 条功能用例 · 3 个工作表
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-forest-muted-foreground">
+                    <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1">XLSX</span>
+                    <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1">标准测试格式</span>
+                    <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1">首页 · 导航 · 页面展示</span>
+                  </div>
+                </div>
+              </div>
+
+              <Button asChild className="liquid-glass forest-control light-reactive shrink-0 rounded-full px-6 py-2.5 text-sm text-foreground" variant="ghost">
+                <a download="YYQ个人网站测试用例-标准格式.xlsx" href={assetUrl("files/YYQ个人网站测试用例-标准格式.xlsx")}>
+                  下载用例
+                  <Download aria-hidden="true" className="ml-2 size-4" strokeWidth={1.8} />
+                </a>
+              </Button>
+            </div>
+          </GlassPanel>
+        </div>
+      </section>
+
+      <section className="order-4 relative z-10 px-6 py-28" id="skills">
         <SectionHeading
           copy="环境系统测试，后端系统维护，环境搭建，AI工具操作"
           copyClassName="text-base text-white sm:text-lg"
@@ -1669,7 +1713,7 @@ function App() {
         </div>
       </section>
 
-      <section className="order-4 relative z-10 px-6 py-28" id="resume">
+      <section className="order-5 relative z-10 px-6 py-28" id="resume">
         <SectionHeading
           copy=""
           eyebrow="Resume"
@@ -1745,7 +1789,7 @@ function App() {
         </div>
       </section>
 
-      <section className="order-5 relative z-10 px-6 py-28" id="contact">
+      <section className="order-6 relative z-10 px-6 py-28" id="contact">
         <GlassPanel className="mx-auto max-w-6xl p-8 text-center">
           <p className="text-sm font-medium uppercase tracking-[0.28em] text-forest-muted-foreground">Reach Me</p>
           <h2
