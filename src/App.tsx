@@ -1,10 +1,12 @@
 import { Button } from "@/components/ui/button";
-import { Download, FileSpreadsheet } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { KnowledgeAssistant } from "@/components/KnowledgeAssistant";
+import { Download, FileSpreadsheet, Menu, X } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
 
 const navItems = [
   { label: "Home", href: "#home" },
+  { label: "Ask AI", href: "#ask" },
   { label: "Codex", href: "#codex" },
   { label: "Showcase", href: "#showcase" },
   { label: "Skills", href: "#skills" },
@@ -13,6 +15,19 @@ const navItems = [
 ];
 
 const assetUrl = (path: string) => new URL(`${import.meta.env.BASE_URL}${path}`, window.location.href).href;
+
+function getFocusableElements(container: HTMLElement | null) {
+  if (!container) return [];
+
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [contenteditable="true"], [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter(
+    (element) =>
+      element.tabIndex >= 0 && element.getAttribute("aria-hidden") !== "true" && element.getClientRects().length > 0
+  );
+}
 
 const seasonBackgrounds = [
   {
@@ -1311,9 +1326,12 @@ function ProjectTimelinePage() {
   );
 }
 
-function ContactModal({ onClose }: { onClose: () => void }) {
+function ContactModal({ onClose, returnFocusTarget }: { onClose: () => void; returnFocusTarget: HTMLElement | null }) {
   const [qrImageReady, setQrImageReady] = useState(true);
   const [isClosing, setIsClosing] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const returnFocusTargetRef = useRef(returnFocusTarget);
   const qrCells = Array.from({ length: 29 * 29 }, (_, index) => {
     const x = index % 29;
     const y = Math.floor(index / 29);
@@ -1350,33 +1368,88 @@ function ContactModal({ onClose }: { onClose: () => void }) {
     return () => window.clearTimeout(timer);
   }, [isClosing, onClose]);
 
+  useLayoutEffect(() => {
+    closeButtonRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  useEffect(
+    () => () => {
+      const focusTarget = returnFocusTargetRef.current;
+
+      if (focusTarget?.isConnected) {
+        focusTarget.focus({ preventScroll: true });
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") requestClose();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        requestClose();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      if (isClosing) {
+        event.preventDefault();
+        return;
+      }
+
+      const focusableElements = getFocusableElements(dialogRef.current);
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        dialogRef.current?.focus({ preventScroll: true });
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement;
+
+      if (!dialogRef.current?.contains(activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? lastElement : firstElement).focus({ preventScroll: true });
+        return;
+      }
+
+      if (event.shiftKey && activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus({ preventScroll: true });
+      } else if (!event.shiftKey && activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus({ preventScroll: true });
+      }
     };
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [requestClose]);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [isClosing, requestClose]);
 
   return (
     <div className={`contact-modal fixed inset-0 z-50 flex items-center justify-center px-5 py-8 ${isClosing ? "is-closing" : ""}`}>
-      <button
-        aria-label="关闭联系弹窗"
+      <div
+        aria-hidden="true"
         className="contact-modal-backdrop absolute inset-0"
         onClick={requestClose}
-        type="button"
       />
       <div
+        aria-describedby="contact-dialog-description"
         aria-labelledby="contact-dialog-title"
         aria-modal="true"
         className="contact-dialog liquid-glass light-reactive relative z-10 w-full max-w-[540px] rounded-[34px] p-4 sm:p-6"
+        ref={dialogRef}
         role="dialog"
+        tabIndex={-1}
       >
         <button
           aria-label="关闭"
           className="contact-close absolute right-2.5 top-2.5 z-20 flex h-8 w-8 items-center justify-center gap-0 rounded-full text-lg text-foreground"
           onClick={requestClose}
+          ref={closeButtonRef}
           type="button"
         >
           ×
@@ -1415,7 +1488,9 @@ function ContactModal({ onClose }: { onClose: () => void }) {
             )}
           </div>
 
-          <p className="mt-7 text-lg font-medium text-muted-foreground">扫二维码，添加我为朋友。</p>
+          <p className="mt-7 text-lg font-medium text-muted-foreground" id="contact-dialog-description">
+            扫二维码，添加我为朋友。
+          </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2 text-xs text-muted-foreground">
             <span className="rounded-full bg-black/10 px-3 py-1">17601252443</span>
             <span className="rounded-full bg-black/10 px-3 py-1">2279113571@qq.com</span>
@@ -1438,20 +1513,74 @@ function getAppView(): AppView {
 function App() {
   const [openCompany, setOpenCompany] = useState(0);
   const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [appView, setAppView] = useState<AppView>(getAppView);
+  const appShellRef = useRef<HTMLDivElement>(null);
+  const contactReturnFocusRef = useRef<HTMLElement | null>(null);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const isAdminView = appView === "admin";
   const isProjectTimelineView = appView === "projects";
+  const mobileNavItems = isProjectTimelineView ? [{ label: "返回项目板", href: "#codex" }] : navItems;
+
+  const closeMobileNav = useCallback((restoreFocus = true) => {
+    setMobileNavOpen(false);
+
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => mobileMenuButtonRef.current?.focus({ preventScroll: true }));
+    }
+  }, []);
+
+  const openContactModal = useCallback((opener: HTMLElement, returnFocusTarget = opener) => {
+    contactReturnFocusRef.current = returnFocusTarget;
+    opener.blur();
+    setMobileNavOpen(false);
+    setContactModalOpen(true);
+  }, []);
+
+  const closeContactModal = useCallback(() => {
+    setContactModalOpen(false);
+  }, []);
 
   useVisitorAnalytics(isAdminView);
 
   useEffect(() => {
-    const updateView = () => setAppView(getAppView());
+    const updateView = () => {
+      setAppView(getAppView());
+      setMobileNavOpen(false);
+    };
 
     window.addEventListener("hashchange", updateView);
     updateView();
 
     return () => window.removeEventListener("hashchange", updateView);
   }, []);
+
+  useEffect(() => {
+    const desktopMediaQuery = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => {
+      if (desktopMediaQuery.matches) {
+        setMobileNavOpen(false);
+      }
+    };
+
+    closeOnDesktop();
+    desktopMediaQuery.addEventListener("change", closeOnDesktop);
+    return () => desktopMediaQuery.removeEventListener("change", closeOnDesktop);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+
+      event.preventDefault();
+      closeMobileNav();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [closeMobileNav, mobileNavOpen]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1490,10 +1619,11 @@ function App() {
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
-      <FloatingForest fixedSeason={isProjectTimelineView ? "spring" : undefined} />
-      <DynamicLightRig />
+      <div aria-hidden={contactModalOpen || undefined} inert={contactModalOpen || undefined} ref={appShellRef}>
+        <FloatingForest fixedSeason={isProjectTimelineView ? "spring" : undefined} />
+        <DynamicLightRig />
 
-      <nav className="fixed inset-x-0 top-0 z-20 mx-auto flex max-w-7xl flex-row items-center justify-between px-6 py-5 sm:px-8">
+        <nav aria-label="主导航" className="fixed inset-x-0 top-0 z-20 mx-auto flex max-w-7xl flex-row items-center justify-between px-6 py-5 sm:px-8">
         <a
           className="light-reactive-text text-3xl tracking-tight text-foreground"
           href="#home"
@@ -1503,11 +1633,11 @@ function App() {
         </a>
 
         {isProjectTimelineView ? (
-          <a className="liquid-glass forest-control light-reactive hidden rounded-full px-6 py-3 text-sm text-foreground transition-transform hover:scale-[1.03] md:inline-flex" href="#codex">
+          <a className="liquid-glass forest-control light-reactive hidden rounded-full px-6 py-3 text-sm text-foreground transition-transform hover:scale-[1.03] lg:inline-flex" href="#codex">
             返回项目板
           </a>
         ) : (
-          <div className="liquid-glass forest-control light-reactive hidden items-center gap-7 rounded-full px-6 py-3 md:flex">
+          <div className="liquid-glass forest-control light-reactive hidden items-center gap-7 rounded-full px-6 py-3 lg:flex">
             {navItems.map((item, index) => (
               <a
                 className={`text-sm transition-colors hover:text-foreground ${
@@ -1522,15 +1652,71 @@ function App() {
           </div>
         )}
 
-        <Button
-          className="liquid-glass forest-control light-reactive rounded-full px-6 py-2.5 text-sm text-foreground transition-transform hover:scale-[1.03]"
-          onClick={() => setContactModalOpen(true)}
-          type="button"
-          variant="ghost"
-        >
-          联系我
-        </Button>
-      </nav>
+        <div className="flex items-center gap-2">
+          <button
+            aria-controls="mobile-site-navigation"
+            aria-expanded={mobileNavOpen}
+            aria-label={mobileNavOpen ? "关闭导航菜单" : "打开导航菜单"}
+            className="liquid-glass forest-control light-reactive inline-flex h-11 w-11 items-center justify-center rounded-full text-foreground transition-transform hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/80 lg:hidden"
+            onClick={() => {
+              if (mobileNavOpen) {
+                closeMobileNav(false);
+                return;
+              }
+
+              setMobileNavOpen(true);
+            }}
+            ref={mobileMenuButtonRef}
+            type="button"
+          >
+            {mobileNavOpen ? <X aria-hidden="true" size={19} /> : <Menu aria-hidden="true" size={20} />}
+          </button>
+
+          <Button
+            className="liquid-glass forest-control light-reactive hidden rounded-full px-6 py-2.5 text-sm text-foreground transition-transform hover:scale-[1.03] lg:inline-flex"
+            onClick={(event) => openContactModal(event.currentTarget)}
+            type="button"
+            variant="ghost"
+          >
+            联系我
+          </Button>
+        </div>
+        </nav>
+
+        {mobileNavOpen ? (
+          <>
+            <div aria-hidden="true" className="fixed inset-0 z-10 bg-slate-950/30 backdrop-blur-[2px] lg:hidden" onClick={() => closeMobileNav()} />
+            <nav
+              aria-label="移动端站点导航"
+              className="liquid-glass forest-control light-reactive fixed inset-x-5 top-[5.5rem] z-30 max-h-[calc(100svh-7rem)] overflow-y-auto rounded-[28px] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.35)] lg:hidden"
+              id="mobile-site-navigation"
+            >
+              <p className="px-3 pb-2 pt-1 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-forest-muted-foreground">
+                快速导航
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {mobileNavItems.map((item) => (
+                  <a
+                    className="rounded-2xl px-3 py-3 text-sm text-foreground transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80"
+                    href={item.href}
+                    key={item.label}
+                    onClick={() => setMobileNavOpen(false)}
+                  >
+                    {item.label}
+                  </a>
+                ))}
+              </div>
+              <Button
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] py-3 text-sm"
+                onClick={(event) => openContactModal(event.currentTarget, mobileMenuButtonRef.current ?? event.currentTarget)}
+                type="button"
+                variant="ghost"
+              >
+                联系我
+              </Button>
+            </nav>
+          </>
+        ) : null}
 
       {isAdminView ? (
         <AnalyticsDashboard />
@@ -1569,7 +1755,9 @@ function App() {
         </div>
       </section>
 
-      <section className="order-2 relative z-10 px-6 py-28" id="codex">
+      <KnowledgeAssistant />
+
+      <section className="order-3 relative z-10 px-6 py-28" id="codex">
         <SectionHeading
           copy="使用 Codex 进行项目细节、进度"
           copyClassName="text-base font-semibold text-forest-muted-foreground sm:text-lg"
@@ -1647,7 +1835,7 @@ function App() {
 
       </section>
 
-      <section className="order-3 relative z-10 px-6 py-28" id="showcase">
+      <section className="order-4 relative z-10 px-6 py-28" id="showcase">
         <SectionHeading
           copy="以标准格式归档网站测试用例，覆盖首页、导航与页面展示。"
           copyClassName="text-base text-white sm:text-lg"
@@ -1688,7 +1876,7 @@ function App() {
         </div>
       </section>
 
-      <section className="order-4 relative z-10 px-6 py-28" id="skills">
+      <section className="order-5 relative z-10 px-6 py-28" id="skills">
         <SectionHeading
           copy="环境系统测试，后端系统维护，环境搭建，AI工具操作"
           copyClassName="text-base text-white sm:text-lg"
@@ -1713,7 +1901,7 @@ function App() {
         </div>
       </section>
 
-      <section className="order-5 relative z-10 px-6 py-28" id="resume">
+      <section className="order-6 relative z-10 px-6 py-28" id="resume">
         <SectionHeading
           copy=""
           eyebrow="Resume"
@@ -1789,7 +1977,7 @@ function App() {
         </div>
       </section>
 
-      <section className="order-6 relative z-10 px-6 py-28" id="contact">
+      <section className="order-7 relative z-10 px-6 py-28" id="contact">
         <GlassPanel className="mx-auto max-w-6xl p-8 text-center">
           <p className="text-sm font-medium uppercase tracking-[0.28em] text-forest-muted-foreground">Reach Me</p>
           <h2
@@ -1804,7 +1992,9 @@ function App() {
         </div>
       )}
 
-      {contactModalOpen ? <ContactModal onClose={() => setContactModalOpen(false)} /> : null}
+      </div>
+
+      {contactModalOpen ? <ContactModal onClose={closeContactModal} returnFocusTarget={contactReturnFocusRef.current} /> : null}
     </main>
   );
 }

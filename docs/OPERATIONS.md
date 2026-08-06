@@ -191,7 +191,20 @@ npx netlify deploy --prod
 
 如果显示未登录，需要先完成 Netlify 登录，或配置 `NETLIFY_AUTH_TOKEN`。
 
-## 13. 发布检查清单
+## 13. 个人经历助手前端
+
+站点包含“问问 YYQ”个人经历助手 UI。RAG 后端尚未启用时，组件会明确显示“前端交互预览”，不会生成真实经历回答。
+
+后端接入完成后，在构建环境中配置：
+
+```text
+VITE_KNOWLEDGE_API_ENABLED=true
+VITE_KNOWLEDGE_API_BASE=https://your-api.example.com
+```
+
+如果前端与 Netlify Function 同域，可以不设置 `VITE_KNOWLEDGE_API_BASE`。接口路径固定为 `POST /api/ask`，返回字段包括 `answer`、`sources` 和 `suggestions`。`VITE_` 开头的变量会进入浏览器构建产物，因此不得在其中放置密钥。
+
+## 14. 发布检查清单
 
 - `npm run typecheck` 通过
 - `npm run build` 通过
