@@ -1,37 +1,56 @@
 {
   "name": "yangyeqi-portfolio",
   "private": true,
-  "version": "0.1.25",
+  "version": "0.3.0",
   "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc -b && vite build",
+    "dev:rag": "netlify dev",
+    "build": "npm run typecheck && vite build",
+    "deploy:preview": "npm run build && netlify deploy",
+    "netlify:status": "netlify status",
     "preview": "vite preview --host 127.0.0.1",
-    "typecheck": "tsc -b",
+    "test": "npm run test:rag",
+    "test:rag": "node --test src/lib/retrieval-trace-display.test.ts netlify/functions/_shared/knowledge-schema.test.ts netlify/functions/_shared/fact-derivation.test.ts netlify/functions/_shared/topic-retrieval.test.ts netlify/functions/_shared/retrieval.test.ts netlify/functions/_shared/hybrid-retrieval.test.ts netlify/functions/_shared/ask-core.test.ts netlify/functions/_shared/ask.test.ts netlify/functions/_shared/health.test.ts",
+    "rag:runtime:prepare": "node scripts/prepare-rag-runtime.mjs",
+    "vectors:build": "node scripts/generate-knowledge-vectors.mjs",
+    "evaluate:rag": "node scripts/evaluate-hybrid-retrieval.mjs",
+    "typecheck": "npm run typecheck:app && npm run typecheck:functions",
+    "typecheck:app": "tsc -b",
+    "typecheck:functions": "tsc --noEmit -p tsconfig.functions.json",
+    "verify:rag": "node scripts/verify-rag.mjs",
     "version:patch": "npm version patch",
     "version:minor": "npm version minor",
     "version:major": "npm version major"
   },
   "dependencies": {
     "@builder.io/react": "^9.4.0",
+    "@huggingface/transformers": "3.8.1",
     "@netlify/blobs": "^10.7.9",
     "@radix-ui/react-slot": "^1.2.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
+    "onnxruntime-web": "1.22.0-dev.20250409-89f8206ba4",
+    "openai": "^7.4.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "vite": "^7.2.4"
+    "vite": "^7.3.6"
   },
   "devDependencies": {
+    "@netlify/functions": "^5.3.0",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.22",
-    "postcss": "^8.5.6",
+    "netlify-cli": "^27.1.1",
+    "postcss": "^8.5.23",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.3"
   }

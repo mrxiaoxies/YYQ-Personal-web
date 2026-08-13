@@ -729,6 +729,7 @@
       linear-gradient(132deg, rgba(3, 18, 24, 0.92), rgba(7, 31, 35, 0.78)),
       radial-gradient(circle at 12% 6%, rgba(216, 255, 166, 0.16), transparent 38%);
     border-color: rgba(225, 248, 210, 0.18);
+    color: #fff;
     min-height: 36rem;
   }
 
@@ -750,16 +751,17 @@
   }
 
   .knowledge-primary-action {
-    background: linear-gradient(135deg, #efffc3, #bde98e);
+    background: linear-gradient(135deg, #356f4f, #174239);
     border: 1px solid rgba(255, 255, 255, 0.62);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.64),
       0 12px 30px rgba(144, 209, 105, 0.18);
+    color: #fff;
     text-shadow: none;
   }
 
   .knowledge-primary-action:hover {
-    background: linear-gradient(135deg, #f5ffd7, #cdf3a4);
+    background: linear-gradient(135deg, #43805b, #1e5546);
   }
 
   .knowledge-preview-badge {
@@ -781,6 +783,23 @@
     box-shadow: 0 0 12px rgba(199, 246, 154, 0.76);
     height: 0.42rem;
     width: 0.42rem;
+  }
+
+  .knowledge-preview-badge[data-state="checking"] .knowledge-status-dot {
+    background: #f8d47a;
+    box-shadow: 0 0 12px rgba(248, 212, 122, 0.62);
+  }
+
+  .knowledge-preview-badge[data-state="preview"] .knowledge-status-dot {
+    animation: none;
+    background: rgba(255, 255, 255, 0.52);
+    box-shadow: none;
+  }
+
+  .knowledge-preview-badge[data-state="unavailable"] .knowledge-status-dot {
+    animation: none;
+    background: #fb8d9b;
+    box-shadow: 0 0 10px rgba(251, 141, 155, 0.48);
   }
 
   .knowledge-question-stage {
@@ -894,6 +913,7 @@
       0 32px 120px rgba(0, 0, 0, 0.48);
     height: min(45rem, calc(100svh - 3.5rem));
     max-width: 27.5rem;
+    color: #fff;
   }
 
   .knowledge-chat-header {
@@ -924,6 +944,24 @@
     white-space: nowrap;
   }
 
+  .knowledge-header-state[data-state="checking"] {
+    background: rgba(248, 212, 122, 0.1);
+    border-color: rgba(248, 212, 122, 0.18);
+    color: #ffe8ab;
+  }
+
+  .knowledge-header-state[data-state="preview"] {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.11);
+    color: rgba(255, 255, 255, 0.72);
+  }
+
+  .knowledge-header-state[data-state="unavailable"] {
+    background: rgba(251, 141, 155, 0.1);
+    border-color: rgba(251, 141, 155, 0.16);
+    color: #ffc4cc;
+  }
+
   .knowledge-icon-button {
     align-items: center;
     background: rgba(255, 255, 255, 0.045);
@@ -951,6 +989,12 @@
     text-shadow: none;
   }
 
+  .knowledge-preview-notice.is-unavailable {
+    background: rgba(251, 141, 155, 0.08);
+    border-color: rgba(251, 141, 155, 0.15);
+    color: rgba(255, 220, 225, 0.86);
+  }
+
   .knowledge-chat-messages {
     min-height: 0;
     overscroll-behavior: contain;
@@ -966,7 +1010,7 @@
     background: rgba(255, 255, 255, 0.055);
     border: 1px solid rgba(255, 255, 255, 0.09);
     border-radius: 7px 18px 18px 18px;
-    color: rgba(255, 255, 255, 0.92);
+    color: #fff;
     padding: 0.72rem 0.88rem;
     text-shadow: none;
   }
@@ -1011,18 +1055,345 @@
     text-shadow: none;
   }
 
+  .knowledge-retrieval-trace {
+    background: rgba(0, 12, 17, 0.48);
+    border: 1px solid rgba(211, 247, 182, 0.12);
+    border-radius: 16px;
+    overflow: hidden;
+    text-shadow: none;
+    width: 100%;
+  }
+
+  .knowledge-retrieval-summary {
+    align-items: center;
+    color: rgba(239, 252, 227, 0.78);
+    cursor: pointer;
+    display: flex;
+    gap: 0.5rem;
+    list-style: none;
+    min-height: 2.75rem;
+    padding: 0.65rem 0.75rem;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  .knowledge-retrieval-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .knowledge-retrieval-summary::marker {
+    content: "";
+  }
+
+  .knowledge-retrieval-summary:hover {
+    background: rgba(213, 249, 180, 0.055);
+    color: rgba(244, 255, 234, 0.94);
+  }
+
+  .knowledge-retrieval-summary:focus-visible {
+    border-radius: 14px;
+    outline: 2px solid rgba(226, 255, 194, 0.72);
+    outline-offset: -2px;
+  }
+
+  .knowledge-retrieval-summary-title {
+    align-items: center;
+    display: inline-flex;
+    flex: 1;
+    font-size: 0.7rem;
+    font-weight: 650;
+    gap: 0.42rem;
+    min-width: 0;
+  }
+
+  .knowledge-retrieval-mode,
+  .knowledge-retrieval-total {
+    background: rgba(203, 243, 169, 0.075);
+    border: 1px solid rgba(215, 250, 184, 0.11);
+    border-radius: 999px;
+    color: rgba(224, 249, 204, 0.67);
+    flex: 0 0 auto;
+    font-size: 0.58rem;
+    line-height: 1;
+    padding: 0.28rem 0.42rem;
+    white-space: nowrap;
+  }
+
+  .knowledge-retrieval-chevron {
+    flex: 0 0 auto;
+    transition: transform 0.2s ease;
+  }
+
+  .knowledge-retrieval-trace[open] .knowledge-retrieval-chevron {
+    transform: rotate(180deg);
+  }
+
+  .knowledge-retrieval-body {
+    border-top: 1px solid rgba(221, 250, 197, 0.09);
+    padding: 0.75rem;
+  }
+
+  .knowledge-retrieval-overview {
+    background: linear-gradient(145deg, rgba(210, 247, 177, 0.07), rgba(255, 255, 255, 0.025));
+    border: 1px solid rgba(218, 250, 191, 0.09);
+    border-radius: 12px;
+    padding: 0.7rem;
+  }
+
+  .knowledge-retrieval-eyebrow {
+    color: rgba(205, 241, 173, 0.48);
+    font-size: 0.54rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .knowledge-retrieval-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .knowledge-retrieval-meta span,
+  .knowledge-retrieval-scores span {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.065);
+    border-radius: 999px;
+    color: rgba(235, 248, 225, 0.59);
+    font-size: 0.58rem;
+    padding: 0.22rem 0.38rem;
+    white-space: nowrap;
+  }
+
+  .knowledge-vector-pipelines {
+    display: grid;
+    gap: 0.55rem;
+    margin-top: 0.7rem;
+  }
+
+  .knowledge-vector-pipeline {
+    background: rgba(255, 255, 255, 0.022);
+    border: 1px solid rgba(214, 248, 186, 0.075);
+    border-radius: 12px;
+    padding: 0.62rem 0.66rem;
+  }
+
+  .knowledge-vector-pipeline[data-pipeline="question"] {
+    background: rgba(160, 222, 208, 0.035);
+    border-color: rgba(181, 239, 218, 0.09);
+  }
+
+  .knowledge-vector-pipeline-header {
+    align-items: center;
+    display: flex;
+    gap: 0.5rem;
+    justify-content: space-between;
+    margin-bottom: 0.48rem;
+  }
+
+  .knowledge-vector-pipeline-title {
+    color: rgba(237, 252, 224, 0.76);
+    font-size: 0.67rem;
+    font-weight: 700;
+  }
+
+  .knowledge-vector-pipeline-cadence {
+    color: rgba(211, 240, 188, 0.43);
+    font-size: 0.56rem;
+    letter-spacing: 0.06em;
+  }
+
+  .knowledge-vector-pipeline-flow {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.22rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .knowledge-vector-pipeline-flow li {
+    align-items: center;
+    display: inline-flex;
+    gap: 0.22rem;
+    max-width: 100%;
+  }
+
+  .knowledge-vector-pipeline-node {
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 7px;
+    color: rgba(235, 249, 223, 0.62);
+    font-size: 0.59rem;
+    line-height: 1rem;
+    max-width: 100%;
+    padding: 0.18rem 0.34rem;
+    white-space: nowrap;
+  }
+
+  .knowledge-vector-pipeline[data-pipeline="question"] .knowledge-vector-pipeline-node {
+    border-color: rgba(188, 236, 221, 0.075);
+    color: rgba(221, 247, 236, 0.65);
+  }
+
+  .knowledge-vector-pipeline-arrow {
+    color: rgba(202, 239, 173, 0.32);
+    flex: 0 0 auto;
+    font-size: 0.64rem;
+    line-height: 1;
+  }
+
+  .knowledge-retrieval-steps {
+    list-style: none;
+    margin: 0.8rem 0 0;
+    padding: 0;
+  }
+
+  .knowledge-retrieval-step {
+    display: flex;
+    gap: 0.65rem;
+    padding: 0 0 0.8rem;
+    position: relative;
+  }
+
+  .knowledge-retrieval-step:last-child {
+    padding-bottom: 0;
+  }
+
+  .knowledge-retrieval-step:not(:last-child)::after {
+    background: rgba(219, 249, 193, 0.1);
+    content: "";
+    height: calc(100% - 1.5rem);
+    left: 0.68rem;
+    position: absolute;
+    top: 1.55rem;
+    width: 1px;
+  }
+
+  .knowledge-retrieval-step-number {
+    align-items: center;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 50%;
+    color: rgba(238, 249, 229, 0.52);
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-size: 0.58rem;
+    font-weight: 700;
+    height: 1.4rem;
+    justify-content: center;
+    width: 1.4rem;
+  }
+
+  .knowledge-retrieval-step[data-status="passed"] .knowledge-retrieval-step-number,
+  .knowledge-retrieval-step[data-status="completed"] .knowledge-retrieval-step-number {
+    background: rgba(198, 239, 158, 0.12);
+    border-color: rgba(213, 250, 179, 0.18);
+    color: #dcffc1;
+  }
+
+  .knowledge-retrieval-step[data-status="blocked"] .knowledge-retrieval-step-number,
+  .knowledge-retrieval-step[data-status="failed"] .knowledge-retrieval-step-number {
+    background: rgba(251, 141, 155, 0.1);
+    border-color: rgba(251, 141, 155, 0.18);
+    color: #ffc4cc;
+  }
+
+  .knowledge-retrieval-step-status {
+    color: rgba(214, 243, 190, 0.48);
+    flex: 0 0 auto;
+    font-size: 0.56rem;
+    white-space: nowrap;
+  }
+
+  .knowledge-retrieval-fallback {
+    background: rgba(248, 212, 122, 0.065);
+    border: 1px solid rgba(248, 212, 122, 0.12);
+    border-radius: 11px;
+    color: rgba(255, 239, 197, 0.68);
+    font-size: 0.64rem;
+    line-height: 1.1rem;
+    margin-top: 0.75rem;
+    padding: 0.58rem 0.65rem;
+  }
+
+  .knowledge-retrieval-fallback-label {
+    color: rgba(255, 233, 177, 0.88);
+    display: block;
+    font-size: 0.56rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.14rem;
+    text-transform: uppercase;
+  }
+
+  .knowledge-retrieval-candidates {
+    border-top: 1px solid rgba(218, 248, 193, 0.08);
+    margin-top: 0.8rem;
+    padding-top: 0.7rem;
+  }
+
+  .knowledge-retrieval-candidate {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.055);
+    border-radius: 10px;
+    padding: 0.52rem 0.58rem;
+  }
+
+  .knowledge-retrieval-candidate[data-selected="true"] {
+    background: rgba(202, 241, 169, 0.055);
+    border-color: rgba(214, 249, 185, 0.12);
+  }
+
+  .knowledge-retrieval-selected {
+    color: #ddffc1;
+    flex: 0 0 auto;
+    font-size: 0.56rem;
+  }
+
+  .knowledge-retrieval-scores {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.28rem;
+    margin-top: 0.4rem;
+  }
+
+  .knowledge-retrieval-privacy {
+    color: rgba(229, 243, 218, 0.38);
+    font-size: 0.56rem;
+    line-height: 1rem;
+    margin-top: 0.7rem;
+  }
+
   .knowledge-typing {
     align-items: center;
     background: rgba(255, 255, 255, 0.055);
     border: 1px solid rgba(255, 255, 255, 0.09);
     border-radius: 7px 18px 18px 18px;
+    color: rgba(228, 250, 209, 0.72);
     display: flex;
-    gap: 0.3rem;
+    gap: 0.45rem;
     height: 2.75rem;
     padding: 0 0.9rem;
   }
 
-  .knowledge-typing span {
+  .knowledge-typing-icon {
+    flex: 0 0 auto;
+  }
+
+  .knowledge-typing-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .knowledge-typing-dots {
+    align-items: center;
+    display: inline-flex;
+    gap: 0.24rem;
+  }
+
+  .knowledge-typing-dots > span {
     animation: knowledge-typing 1.1s ease-in-out infinite;
     background: rgba(228, 255, 204, 0.72);
     border-radius: 50%;
@@ -1030,11 +1401,11 @@
     width: 0.34rem;
   }
 
-  .knowledge-typing span:nth-child(2) {
+  .knowledge-typing-dots > span:nth-child(2) {
     animation-delay: 0.14s;
   }
 
-  .knowledge-typing span:nth-child(3) {
+  .knowledge-typing-dots > span:nth-child(3) {
     animation-delay: 0.28s;
   }
 
@@ -1083,10 +1454,10 @@
 
   .knowledge-send-button {
     align-items: center;
-    background: linear-gradient(135deg, #eaffbd, #b8e68b);
+    background: linear-gradient(135deg, #3b7855, #204f42);
     border: 0;
     border-radius: 15px;
-    color: #0a271d;
+    color: #fff;
     display: inline-flex;
     flex: 0 0 auto;
     height: 2.75rem;
@@ -1552,6 +1923,16 @@
     padding-top: max(1rem, env(safe-area-inset-top));
   }
 
+  .knowledge-retrieval-body,
+  .knowledge-retrieval-summary {
+    padding-left: 0.68rem;
+    padding-right: 0.68rem;
+  }
+
+  .knowledge-retrieval-step {
+    gap: 0.55rem;
+  }
+
   .knowledge-launcher {
     bottom: max(1.25rem, env(safe-area-inset-bottom));
   }
@@ -1571,7 +1952,7 @@
   .knowledge-chat-layer,
   .knowledge-chat-panel,
   .knowledge-status-dot,
-  .knowledge-typing span,
+  .knowledge-typing-dots > span,
   .resume-company-panel,
   .resume-company-summary-text,
   .resume-projects-grid,

@@ -5,3 +5,11 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+[functions."ask"]
+  included_files = [
+    "knowledge/vector-index.json",
+    "models/Xenova/bge-small-zh-v1.5/**",
+    "netlify/functions/_assets/onnxruntime/**",
+    "netlify/functions/_vendor/**"
+  ]
