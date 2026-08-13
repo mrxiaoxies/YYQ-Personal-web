@@ -11,3 +11,5 @@ git-backup/
 gif/
 YYQ-Personal-web/
 .worktrees/
+.codex/config.toml
+outputs/
