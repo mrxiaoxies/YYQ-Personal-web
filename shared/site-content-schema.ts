@@ -147,7 +147,7 @@ function strictObject(value: unknown, path: string, allowedKeys: readonly string
 }
 
 function requiredText(value: unknown, path: string, maxLength = MAX_TEXT): string {
-  if (typeof value !== "string" || value.length === 0 || value.length > maxLength) {
+  if (typeof value !== "string" || value.trim().length === 0 || value.length > maxLength) {
     throw new TypeError(`${path} must be a non-empty string no longer than ${maxLength} characters`);
   }
 
@@ -176,6 +176,9 @@ function stableId(value: unknown, path: string): string {
 
 function externalUrl(value: unknown, path: string): string {
   const href = requiredText(value, path, MAX_TEXT);
+  if (!/^https?:\/\//.test(href)) {
+    throw new TypeError(`${path} must begin with http:// or https://`);
+  }
   let url: URL;
   try {
     url = new URL(href);

@@ -23,6 +23,23 @@ test("content update rejects unknown fields and unsafe targets", () => {
   assert.throws(() => parseSiteContentUpdate(update), /href/);
 });
 
+test("content update rejects HTTP(S) links without literal double slashes", () => {
+  for (const href of ["http:example.com", "http:/example.com", "https:example.com"]) {
+    const update = {
+      expectedVersion: defaultSiteContent.version,
+      sections: structuredClone(defaultSiteContent.sections)
+    };
+    update.sections.codex.projects[0].links = [{ id: "malformed-link", label: "bad", href }];
+    assert.throws(() => parseSiteContentUpdate(update), /href/);
+  }
+});
+
+test("document rejects whitespace-only required text", () => {
+  const document = structuredClone(defaultSiteContent);
+  document.sections.home.eyebrow = " \t\n ";
+  assert.throws(() => parseSiteContentDocument(document), /eyebrow/);
+});
+
 test("showcase allows safe public files and rejects traversal", () => {
   const safe = structuredClone(defaultSiteContent);
   safe.sections.showcase.downloadHref = "files/YYQ个人网站测试用例-标准格式.xlsx";
