@@ -21,6 +21,8 @@ const requestContext = (siteUrl?: string) => ({
   site: siteUrl ? { url: siteUrl } : undefined
 }) as Context;
 
+const SESSION_TOKEN_EXAMPLE = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8";
+
 async function withConfiguredOrigins<T>(origins: string | undefined, operation: () => Promise<T> | T) {
   const previous = process.env.ADMIN_ALLOWED_ORIGINS;
   if (origins === undefined) delete process.env.ADMIN_ALLOWED_ORIGINS;
@@ -42,6 +44,21 @@ test("password hashing uses scrypt with unique salts", async () => {
   assert.notEqual(first.salt, second.salt);
   assert.equal(await verifyPassword("correct horse battery staple", first), true);
   assert.equal(await verifyPassword("wrong password", first), false);
+});
+
+test("password verification rejects non-canonical base64url salt and digest encodings", async () => {
+  const record = await hashPassword("correct horse battery staple");
+
+  assert.equal(record.salt.length, 22);
+  assert.equal(record.digest.length, 86);
+  assert.equal(
+    await verifyPassword("correct horse battery staple", { ...record, salt: `${record.salt}!` }),
+    false
+  );
+  assert.equal(
+    await verifyPassword("correct horse battery staple", { ...record, digest: `${record.digest}!` }),
+    false
+  );
 });
 
 test("password hashing accepts only passwords from 12 through 128 characters", async () => {
@@ -68,10 +85,10 @@ test("session tokens are random URL-safe values", () => {
 });
 
 test("session cookies are host-safe and script-inaccessible", () => {
-  const cookie = sessionCookie("session-token");
+  const cookie = sessionCookie(SESSION_TOKEN_EXAMPLE);
   const cleared = clearSessionCookie();
 
-  assert.match(cookie, new RegExp(`^${ADMIN_SESSION_COOKIE}=session-token;`));
+  assert.match(cookie, new RegExp(`^${ADMIN_SESSION_COOKIE}=${SESSION_TOKEN_EXAMPLE};`));
   assert.match(cookie, /HttpOnly/i);
   assert.match(cookie, /Secure/i);
   assert.match(cookie, /SameSite=Lax/i);
@@ -84,20 +101,44 @@ test("session cookies are host-safe and script-inaccessible", () => {
   assert.match(cleared, /Path=\//i);
 });
 
-test("session cookie reading returns only the named cookie", () => {
+test("session cookie reading accepts one canonical session token only", () => {
   assert.equal(readSessionCookie(new Request("https://admin.example.com")), undefined);
   assert.equal(
     readSessionCookie(
       new Request("https://admin.example.com", {
-        headers: { Cookie: "other=value; yyq_admin_session=session-token; another=value" }
+        headers: { Cookie: `other=value; yyq_admin_session=${SESSION_TOKEN_EXAMPLE}; another=value` }
       })
     ),
-    "session-token"
+    SESSION_TOKEN_EXAMPLE
   );
   assert.equal(
     readSessionCookie(
       new Request("https://admin.example.com", {
         headers: { Cookie: "not_yyq_admin_session=session-token" }
+      })
+    ),
+    undefined
+  );
+  assert.equal(
+    readSessionCookie(
+      new Request("https://admin.example.com", {
+        headers: { Cookie: `yyq_admin_session=${SESSION_TOKEN_EXAMPLE}; yyq_admin_session=${SESSION_TOKEN_EXAMPLE}` }
+      })
+    ),
+    undefined
+  );
+  assert.equal(
+    readSessionCookie(
+      new Request("https://admin.example.com", {
+        headers: { Cookie: "yyq_admin_session=short-token" }
+      })
+    ),
+    undefined
+  );
+  assert.equal(
+    readSessionCookie(
+      new Request("https://admin.example.com", {
+        headers: { Cookie: `yyq_admin_session=${SESSION_TOKEN_EXAMPLE}!` }
       })
     ),
     undefined
@@ -167,6 +208,30 @@ test("admin request origins reject missing, malformed, non-exact, and GitHub Pag
   });
 });
 
+test("admin configured origins reject normalized variants and GitHub Pages", async () => {
+  const request = (origin: string) =>
+    resolveAdminRequestOrigin(
+      new Request("https://function.example.com/.netlify/functions/admin", { headers: { Origin: origin } }),
+      requestContext()
+    ).allowed;
+
+  for (const configuredOrigin of [
+    "https://admin.example.com/path",
+    "https://admin.example.com?preview=true",
+    "https://admin.example.com#preview",
+    "https://user:password@admin.example.com",
+    "https://admin.example.com/"
+  ]) {
+    await withConfiguredOrigins(configuredOrigin, () => {
+      assert.equal(request("https://admin.example.com"), false);
+    });
+  }
+
+  await withConfiguredOrigins("https://mrxiaoxies.github.io", () => {
+    assert.equal(request("https://mrxiaoxies.github.io"), false);
+  });
+});
+
 test("bounded JSON permits a 128 KiB body and rejects a body over the limit", async () => {
   const atLimit = JSON.stringify({ value: "a".repeat(ADMIN_BODY_LIMIT_BYTES - 12) });
   const overLimit = JSON.stringify({ value: "a".repeat(ADMIN_BODY_LIMIT_BYTES) });
@@ -186,5 +251,38 @@ test("bounded JSON permits a 128 KiB body and rejects a body over the limit", as
         ADMIN_BODY_LIMIT_BYTES
       ),
     /too large/i
+  );
+});
+test("bounded JSON rejects invalid UTF-8 instead of replacement-decoding it", async () => {
+  const prefix = new TextEncoder().encode('{"value":"');
+  const suffix = new TextEncoder().encode('"}');
+  const invalidUtf8 = new Uint8Array([...prefix, 0x80, ...suffix]);
+
+  await assert.rejects(
+    () =>
+      readBoundedJson(
+        new Request("https://admin.example.com", { method: "POST", body: invalidUtf8 }),
+        ADMIN_BODY_LIMIT_BYTES
+      ),
+    { message: "Invalid JSON request body." }
+  );
+});
+
+test("bounded JSON hides malformed JSON fragments from its error", async () => {
+  const secret = "recovery-token-should-not-leak";
+  const malformedJson = `{"password":"${secret}"`;
+
+  await assert.rejects(
+    () =>
+      readBoundedJson(
+        new Request("https://admin.example.com", { method: "POST", body: malformedJson }),
+        ADMIN_BODY_LIMIT_BYTES
+      ),
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.equal(error.message, "Invalid JSON request body.");
+      assert.equal(error.message.includes(secret), false);
+      return true;
+    }
   );
 });

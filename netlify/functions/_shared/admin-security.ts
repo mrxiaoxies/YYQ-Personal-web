@@ -12,7 +12,9 @@ const PASSWORD_MIN_LENGTH = 12;
 const PASSWORD_MAX_LENGTH = 128;
 const PASSWORD_SALT_BYTES = 16;
 const PASSWORD_DIGEST_BYTES = 64;
-const SESSION_TOKEN_PATTERN = /^[A-Za-z0-9_-]+$/;
+const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
+const SESSION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const GITHUB_PAGES_ORIGIN = "https://mrxiaoxies.github.io";
 const LOCAL_ADMIN_ORIGINS = [
   "http://127.0.0.1:5173",
   "http://localhost:5173",
@@ -55,11 +57,24 @@ function normalizeOrigin(value: string | undefined) {
   }
 }
 
+function exactOrigin(value: string | undefined) {
+  const normalized = normalizeOrigin(value);
+  return normalized && normalized === value ? normalized : undefined;
+}
+
 function configuredAdminOrigins() {
   return (getNetlifyEnv("ADMIN_ALLOWED_ORIGINS") ?? "")
     .split(",")
-    .map((value) => normalizeOrigin(value.trim()))
-    .filter((value): value is string => Boolean(value));
+    .map((value) => exactOrigin(value))
+    .filter((value): value is string => Boolean(value && value !== GITHUB_PAGES_ORIGIN));
+}
+
+function decodeCanonicalBase64Url(value: string, expectedBytes: number) {
+  if (!BASE64URL_PATTERN.test(value) || value.length !== Math.ceil((expectedBytes * 4) / 3)) return undefined;
+
+  const decoded = Buffer.from(value, "base64url");
+  if (decoded.length !== expectedBytes || decoded.toString("base64url") !== value) return undefined;
+  return decoded;
 }
 
 function cookieAttributes(maxAge: number) {
@@ -82,9 +97,9 @@ export async function verifyPassword(password: string, record: PasswordDigest): 
   if (!isValidPassword(password) || !record || record.algorithm !== "scrypt") return false;
 
   try {
-    const salt = Buffer.from(record.salt, "base64url");
-    const expectedDigest = Buffer.from(record.digest, "base64url");
-    if (salt.length !== PASSWORD_SALT_BYTES || expectedDigest.length !== PASSWORD_DIGEST_BYTES) return false;
+    const salt = decodeCanonicalBase64Url(record.salt, PASSWORD_SALT_BYTES);
+    const expectedDigest = decodeCanonicalBase64Url(record.digest, PASSWORD_DIGEST_BYTES);
+    if (!salt || !expectedDigest) return false;
 
     const actualDigest = (await scryptAsync(password, salt, PASSWORD_DIGEST_BYTES)) as Buffer;
     return timingSafeEqual(actualDigest, expectedDigest);
@@ -121,29 +136,34 @@ export function readSessionCookie(req: Request) {
   const cookieHeader = req.headers.get("Cookie");
   if (!cookieHeader) return undefined;
 
+  let token: string | undefined;
   for (const value of cookieHeader.split(";")) {
     const [name, ...parts] = value.trim().split("=");
-    if (name === ADMIN_SESSION_COOKIE) return parts.join("=") || undefined;
+    if (name !== ADMIN_SESSION_COOKIE) continue;
+    if (token !== undefined) return undefined;
+    token = parts.join("=") || undefined;
   }
 
-  return undefined;
+  return token && SESSION_TOKEN_PATTERN.test(token) ? token : undefined;
 }
 
 export function resolveAdminRequestOrigin(req: Request, context: Context): AdminRequestOrigin {
   const origin = req.headers.get("Origin");
   if (!origin) return { allowed: false, origin: undefined };
 
-  const normalized = normalizeOrigin(origin);
-  if (!normalized || normalized !== origin) {
+  const normalized = exactOrigin(origin);
+  if (!normalized || normalized === GITHUB_PAGES_ORIGIN) {
     return { allowed: false, origin: undefined };
   }
 
-  const allowedOrigins = new Set([
-    normalizeOrigin(req.url),
-    normalizeOrigin(context.site?.url),
-    ...LOCAL_ADMIN_ORIGINS,
-    ...configuredAdminOrigins()
-  ]);
+  const allowedOrigins = new Set(
+    [
+      normalizeOrigin(req.url),
+      normalizeOrigin(context.site?.url),
+      ...LOCAL_ADMIN_ORIGINS,
+      ...configuredAdminOrigins()
+    ].filter((value): value is string => Boolean(value && value !== GITHUB_PAGES_ORIGIN))
+  );
 
   return {
     allowed: allowedOrigins.has(normalized),
@@ -161,7 +181,7 @@ export async function readBoundedJson(req: Request, maxBytes = ADMIN_BODY_LIMIT_
     throw new Error("JSON request body is too large.");
   }
 
-  if (!req.body) return JSON.parse("");
+  if (!req.body) throw new Error("Invalid JSON request body.");
 
   const reader = req.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -190,5 +210,9 @@ export async function readBoundedJson(req: Request, maxBytes = ADMIN_BODY_LIMIT_
     offset += chunk.byteLength;
   }
 
-  return JSON.parse(new TextDecoder().decode(body));
+  try {
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
+  } catch {
+    throw new Error("Invalid JSON request body.");
+  }
 }
