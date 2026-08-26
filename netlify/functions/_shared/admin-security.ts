@@ -14,7 +14,7 @@ const PASSWORD_SALT_BYTES = 16;
 const PASSWORD_DIGEST_BYTES = 64;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
 const SESSION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-const GITHUB_PAGES_ORIGIN = "https://mrxiaoxies.github.io";
+const GITHUB_PAGES_HOSTNAME = "mrxiaoxies.github.io";
 const LOCAL_ADMIN_ORIGINS = [
   "http://127.0.0.1:5173",
   "http://localhost:5173",
@@ -62,11 +62,21 @@ function exactOrigin(value: string | undefined) {
   return normalized && normalized === value ? normalized : undefined;
 }
 
+function isGitHubPagesOrigin(value: string | undefined) {
+  if (!value) return false;
+
+  try {
+    return new URL(value).hostname === GITHUB_PAGES_HOSTNAME;
+  } catch {
+    return false;
+  }
+}
+
 function configuredAdminOrigins() {
   return (getNetlifyEnv("ADMIN_ALLOWED_ORIGINS") ?? "")
     .split(",")
     .map((value) => exactOrigin(value))
-    .filter((value): value is string => Boolean(value && value !== GITHUB_PAGES_ORIGIN));
+    .filter((value): value is string => Boolean(value && !isGitHubPagesOrigin(value)));
 }
 
 function decodeCanonicalBase64Url(value: string, expectedBytes: number) {
@@ -137,14 +147,16 @@ export function readSessionCookie(req: Request) {
   if (!cookieHeader) return undefined;
 
   let token: string | undefined;
+  let namedCookieOccurrences = 0;
   for (const value of cookieHeader.split(";")) {
     const [name, ...parts] = value.trim().split("=");
     if (name !== ADMIN_SESSION_COOKIE) continue;
-    if (token !== undefined) return undefined;
+    namedCookieOccurrences += 1;
+    if (namedCookieOccurrences > 1) return undefined;
     token = parts.join("=") || undefined;
   }
 
-  return token && SESSION_TOKEN_PATTERN.test(token) ? token : undefined;
+  return namedCookieOccurrences === 1 && token && SESSION_TOKEN_PATTERN.test(token) ? token : undefined;
 }
 
 export function resolveAdminRequestOrigin(req: Request, context: Context): AdminRequestOrigin {
@@ -152,7 +164,7 @@ export function resolveAdminRequestOrigin(req: Request, context: Context): Admin
   if (!origin) return { allowed: false, origin: undefined };
 
   const normalized = exactOrigin(origin);
-  if (!normalized || normalized === GITHUB_PAGES_ORIGIN) {
+  if (!normalized || isGitHubPagesOrigin(normalized)) {
     return { allowed: false, origin: undefined };
   }
 
@@ -162,7 +174,7 @@ export function resolveAdminRequestOrigin(req: Request, context: Context): Admin
       normalizeOrigin(context.site?.url),
       ...LOCAL_ADMIN_ORIGINS,
       ...configuredAdminOrigins()
-    ].filter((value): value is string => Boolean(value && value !== GITHUB_PAGES_ORIGIN))
+    ].filter((value): value is string => Boolean(value && !isGitHubPagesOrigin(value)))
   );
 
   return {

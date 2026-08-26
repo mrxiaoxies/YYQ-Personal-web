@@ -145,6 +145,28 @@ test("session cookie reading accepts one canonical session token only", () => {
   );
 });
 
+test("session cookie reading fails closed after an empty named cookie", () => {
+  assert.equal(
+    readSessionCookie(
+      new Request("https://admin.example.com", {
+        headers: { Cookie: `yyq_admin_session=; yyq_admin_session=${SESSION_TOKEN_EXAMPLE}` }
+      })
+    ),
+    undefined
+  );
+});
+
+test("session cookie reading fails closed after a bare named cookie", () => {
+  assert.equal(
+    readSessionCookie(
+      new Request("https://admin.example.com", {
+        headers: { Cookie: `yyq_admin_session; yyq_admin_session=${SESSION_TOKEN_EXAMPLE}` }
+      })
+    ),
+    undefined
+  );
+});
+
 test("admin request origins require an exact configured or local origin", async () => {
   await withConfiguredOrigins("https://admin.example.com,not a URL,ftp://invalid.example.com", () => {
     const context = requestContext("https://site-name.netlify.app");
@@ -229,6 +251,12 @@ test("admin configured origins reject normalized variants and GitHub Pages", asy
 
   await withConfiguredOrigins("https://mrxiaoxies.github.io", () => {
     assert.equal(request("https://mrxiaoxies.github.io"), false);
+  });
+  await withConfiguredOrigins("http://mrxiaoxies.github.io", () => {
+    assert.equal(request("http://mrxiaoxies.github.io"), false);
+  });
+  await withConfiguredOrigins("https://mrxiaoxies.github.io.example", () => {
+    assert.equal(request("https://mrxiaoxies.github.io.example"), true);
   });
 });
 
