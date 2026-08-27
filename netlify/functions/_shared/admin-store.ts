@@ -29,6 +29,11 @@ export type LoginAttempt = {
   lastAttemptAt: string;
 };
 
+export type LoginAttemptSnapshot = {
+  attempt: LoginAttempt;
+  etag: string;
+};
+
 export interface AdminStore {
   getUserByEmail(emailNormalized: string): Promise<AdminUser | null>;
   getOnlyUser(): Promise<AdminUser | null>;
@@ -40,8 +45,8 @@ export interface AdminStore {
   setSession(session: AdminSession): Promise<void>;
   deleteSession(tokenHash: string): Promise<void>;
   deleteSessionsForUser(userId: string): Promise<void>;
-  getAttempt(key: string): Promise<LoginAttempt | null>;
-  setAttempt(key: string, attempt: LoginAttempt): Promise<void>;
+  getAttempt(key: string): Promise<LoginAttemptSnapshot | null>;
+  setAttempt(key: string, attempt: LoginAttempt, expectedEtag: string | null): Promise<boolean>;
   deleteAttempt(key: string): Promise<void>;
   updateUser(user: AdminUser): Promise<void>;
 }
@@ -253,12 +258,22 @@ export function createBlobAdminStore(
 
     async getAttempt(key) {
       const attemptKey = `${ATTEMPT_PREFIX}${hashSecret(key)}`;
-      return readJson(store, attemptKey, parseLoginAttempt);
+      const result = await store.getWithMetadata(attemptKey, { type: "json" });
+      if (result === null) return null;
+      if (typeof result.etag !== "string" || result.etag.length === 0) {
+        throw new Error("Administrator login-attempt Blob is missing an ETag.");
+      }
+      return { attempt: parseLoginAttempt(result.data), etag: result.etag };
     },
 
-    async setAttempt(key, attempt) {
+    async setAttempt(key, attempt, expectedEtag) {
       const attemptKey = `${ATTEMPT_PREFIX}${hashSecret(key)}`;
-      await store.setJSON(attemptKey, parseLoginAttempt(attempt));
+      if (expectedEtag !== null && expectedEtag.length === 0) {
+        throw new Error("Invalid administrator login-attempt ETag.");
+      }
+      const options = expectedEtag === null ? { onlyIfNew: true } : { onlyIfMatch: expectedEtag };
+      const result = await store.setJSON(attemptKey, parseLoginAttempt(attempt), options);
+      return result.modified;
     },
 
     async deleteAttempt(key) {

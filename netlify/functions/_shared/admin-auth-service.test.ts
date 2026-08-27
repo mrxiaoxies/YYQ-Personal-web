@@ -16,6 +16,7 @@ import {
 } from "./admin-store.ts";
 
 const SETUP_TOKEN = "setup-token-that-is-at-least-32-characters";
+const DIFFERENT_SETUP_TOKEN = "different-setup-token-that-is-at-least-32-chars";
 const RECOVERY_TOKEN = "recovery-token-that-is-at-least-32-chars";
 const STRONG_PASSWORD = "correct horse battery staple";
 const NEW_PASSWORD = "new correct horse battery staple";
@@ -34,11 +35,13 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
-function createMemoryAdminStore(): MemoryAdminStore {
+function createMemoryAdminStore(options: { createUserFailures?: number } = {}): MemoryAdminStore {
   const users = new Map<string, AdminUser>();
   const sessions = new Map<string, AdminSession>();
   const controls = new Map<string, Record<string, unknown>>();
-  const attempts = new Map<string, LoginAttempt>();
+  const attempts = new Map<string, { attempt: LoginAttempt; etag: string }>();
+  let attemptEtagVersion = 0;
+  let remainingCreateUserFailures = options.createUserFailures ?? 0;
 
   return {
     async getUserByEmail(emailNormalized) {
@@ -50,6 +53,10 @@ function createMemoryAdminStore(): MemoryAdminStore {
       return user ? clone(user) : null;
     },
     async createUserOnce(user) {
+      if (remainingCreateUserFailures > 0) {
+        remainingCreateUserFailures -= 1;
+        throw new Error("simulated administrator user write failure");
+      }
       if (users.size > 0) return false;
       users.set(user.id, clone(user));
       return true;
@@ -82,11 +89,17 @@ function createMemoryAdminStore(): MemoryAdminStore {
       }
     },
     async getAttempt(key) {
-      const attempt = attempts.get(key);
-      return attempt ? clone(attempt) : null;
+      const snapshot = attempts.get(key);
+      return snapshot ? clone(snapshot) : null;
     },
-    async setAttempt(key, attempt) {
-      attempts.set(key, clone(attempt));
+    async setAttempt(key, attempt, expectedEtag) {
+      const current = attempts.get(key);
+      if ((current === undefined && expectedEtag !== null) || (current !== undefined && current.etag !== expectedEtag)) {
+        return false;
+      }
+      attemptEtagVersion += 1;
+      attempts.set(key, { attempt: clone(attempt), etag: `memory-attempt-etag-${attemptEtagVersion}` });
+      return true;
     },
     async deleteAttempt(key) {
       attempts.delete(key);
@@ -98,8 +111,48 @@ function createMemoryAdminStore(): MemoryAdminStore {
     inspectUsers: () => Object.freeze([...users.values()].map((user) => Object.freeze(clone(user)))),
     inspectSessions: () => new Map([...sessions].map(([key, value]) => [key, Object.freeze(clone(value))])),
     inspectControls: () => new Map([...controls].map(([key, value]) => [key, Object.freeze(clone(value))])),
-    inspectAttempts: () => new Map([...attempts].map(([key, value]) => [key, Object.freeze(clone(value))]))
+    inspectAttempts: () => new Map([...attempts].map(([key, snapshot]) => [key, Object.freeze(clone(snapshot.attempt))]))
   };
+}
+
+function createConcurrentCasAdminStore(expectedInitialWriters: number) {
+  const store = createMemoryAdminStore();
+  const attempts = new Map<string, { attempt: LoginAttempt; etag: string }>();
+  let etagVersion = 0;
+  let initialWriters = 0;
+  let casConflicts = 0;
+  let releaseInitialWriters!: () => void;
+  const initialWritersReady = new Promise<void>((resolve) => { releaseInitialWriters = resolve; });
+  const casMethods = store as unknown as {
+    getAttempt(key: string): Promise<{ attempt: LoginAttempt; etag: string } | null>;
+    setAttempt(key: string, attempt: LoginAttempt, expectedEtag: string | null): Promise<boolean>;
+  };
+
+  casMethods.getAttempt = async (key) => {
+    const snapshot = attempts.get(key);
+    return snapshot ? clone(snapshot) : null;
+  };
+  casMethods.setAttempt = async (key, attempt, expectedEtag) => {
+    if (initialWriters < expectedInitialWriters) {
+      initialWriters += 1;
+      if (initialWriters === expectedInitialWriters) releaseInitialWriters();
+      await initialWritersReady;
+    }
+
+    const current = attempts.get(key);
+    if ((current === undefined && expectedEtag !== null) || (current !== undefined && current.etag !== expectedEtag)) {
+      casConflicts += 1;
+      return false;
+    }
+    etagVersion += 1;
+    attempts.set(key, { attempt: clone(attempt), etag: `attempt-etag-${etagVersion}` });
+    return true;
+  };
+  store.inspectAttempts = () => new Map(
+    [...attempts].map(([key, snapshot]) => [key, Object.freeze(clone(snapshot.attempt))])
+  );
+
+  return { casConflicts: () => casConflicts, store };
 }
 
 function createClock(initial = "2026-08-26T10:00:00.000Z") {
@@ -177,6 +230,59 @@ test("setup succeeds once and permanently consumes the setup token", async () =>
   );
 });
 
+test("pending setup lets the same token recover from a failed user write", async () => {
+  const store = createMemoryAdminStore({ createUserFailures: 1 });
+  const harness = createTestService({ setupToken: SETUP_TOKEN, store });
+
+  await assert.rejects(
+    () =>
+      harness.service.setup({
+        email: "admin@example.com",
+        password: STRONG_PASSWORD,
+        setupToken: SETUP_TOKEN
+      }),
+    /simulated administrator user write failure/
+  );
+  assert.equal(store.inspectUsers().length, 0);
+  const pending = store.inspectControls().get("setup-lock");
+  assert.equal(pending?.state, "pending");
+  assert.equal(pending?.tokenFingerprint, hashSecret(SETUP_TOKEN));
+  assert.equal(JSON.stringify(pending).includes(SETUP_TOKEN), false);
+
+  harness.environment.set("ADMIN_SETUP_TOKEN", DIFFERENT_SETUP_TOKEN);
+  await expectAuthError(
+    () =>
+      harness.service.setup({
+        email: "takeover@example.com",
+        password: STRONG_PASSWORD,
+        setupToken: DIFFERENT_SETUP_TOKEN
+      }),
+    "setup_closed"
+  );
+  assert.equal(store.inspectUsers().length, 0);
+
+  harness.environment.set("ADMIN_SETUP_TOKEN", SETUP_TOKEN);
+  const retry = await harness.service.setup({
+    email: "admin@example.com",
+    password: STRONG_PASSWORD,
+    setupToken: SETUP_TOKEN
+  });
+  assert.equal(retry.user.email, "admin@example.com");
+  const completed = store.inspectControls().get("setup-lock");
+  assert.equal(completed?.state, "completed");
+  assert.equal(completed?.tokenFingerprint, hashSecret(SETUP_TOKEN));
+
+  await expectAuthError(
+    () =>
+      harness.service.setup({
+        email: "second@example.com",
+        password: STRONG_PASSWORD,
+        setupToken: SETUP_TOKEN
+      }),
+    "setup_closed"
+  );
+});
+
 test("concurrent setup permits exactly one administrator", async () => {
   const harness = createTestService({ setupToken: SETUP_TOKEN });
   const results = await Promise.allSettled([
@@ -240,6 +346,64 @@ test("five failed attempts in fifteen minutes lock the sixth attempt", async () 
     () => harness.service.login({ ...input, password: STRONG_PASSWORD }),
     "rate_limited"
   );
+});
+
+test("concurrent failed logins atomically reach the limit without lost updates", async () => {
+  const casStore = createConcurrentCasAdminStore(6);
+  const harness = createTestService({ setupToken: SETUP_TOKEN, store: casStore.store });
+  await harness.service.setup({ email: "admin@example.com", password: STRONG_PASSWORD, setupToken: SETUP_TOKEN });
+  const input = {
+    email: "admin@example.com",
+    password: "wrong-password-value",
+    rateLimitKey: "admin@example.com|203.0.113.60"
+  };
+
+  const results = await Promise.allSettled(Array.from({ length: 6 }, () => harness.service.login(input)));
+  const codes = results.map((result) => {
+    assert.equal(result.status, "rejected");
+    const reason = (result as PromiseRejectedResult).reason;
+    assert.ok(reason instanceof AdminAuthError);
+    return reason.code;
+  });
+  assert.deepEqual(codes.sort(), [
+    "invalid_credentials",
+    "invalid_credentials",
+    "invalid_credentials",
+    "invalid_credentials",
+    "invalid_credentials",
+    "rate_limited"
+  ]);
+  assert.equal(casStore.store.inspectAttempts().get(input.rateLimitKey)?.count, 5);
+  assert.ok(casStore.casConflicts() > 0, "the fake must exercise real CAS conflicts");
+  await expectAuthError(
+    () => harness.service.login({ ...input, password: STRONG_PASSWORD }),
+    "rate_limited"
+  );
+});
+
+test("persistent attempt CAS conflicts fail closed after bounded retries", async () => {
+  const harness = createTestService({ setupToken: SETUP_TOKEN });
+  await harness.service.setup({ email: "admin@example.com", password: STRONG_PASSWORD, setupToken: SETUP_TOKEN });
+  let conditionalWrites = 0;
+  const conflictingStore = harness.store as unknown as {
+    getAttempt(key: string): Promise<null>;
+    setAttempt(key: string, attempt: LoginAttempt, expectedEtag: string | null): Promise<boolean>;
+  };
+  conflictingStore.getAttempt = async () => null;
+  conflictingStore.setAttempt = async () => {
+    conditionalWrites += 1;
+    return false;
+  };
+
+  await expectAuthError(
+    () => harness.service.login({
+      email: "admin@example.com",
+      password: "wrong-password-value",
+      rateLimitKey: "persistent-cas-conflict"
+    }),
+    "rate_limited"
+  );
+  assert.equal(conditionalWrites, 8);
 });
 
 test("the login limit expires at exactly fifteen minutes", async () => {
@@ -436,9 +600,15 @@ test("Blob adapter uses strong conditional writes, bounded scans, and fail-close
   const writes: Array<{ key: string; options?: Record<string, unknown> }> = [];
   const deletes: string[] = [];
   const listCalls: Array<Record<string, unknown>> = [];
+  const etags = new Map<string, string>();
+  let etagVersion = 0;
   const fakeStore = {
-    async delete(key: string) { deletes.push(key); values.delete(key); },
+    async delete(key: string) { deletes.push(key); values.delete(key); etags.delete(key); },
     async get(key: string) { return values.get(key) ?? null; },
+    async getWithMetadata(key: string) {
+      const data = values.get(key);
+      return data === undefined ? null : { data: clone(data), etag: etags.get(key), metadata: {} };
+    },
     list(options: Record<string, unknown>) {
       listCalls.push(options);
       return { async *[Symbol.asyncIterator]() {
@@ -454,8 +624,14 @@ test("Blob adapter uses strong conditional writes, bounded scans, and fail-close
     async setJSON(key: string, value: unknown, options?: Record<string, unknown>) {
       writes.push({ key, options });
       if (options?.onlyIfNew === true && values.has(key)) return { modified: false };
+      if (typeof options?.onlyIfMatch === "string" && etags.get(key) !== options.onlyIfMatch) {
+        return { modified: false };
+      }
+      etagVersion += 1;
+      const etag = `etag-${etagVersion}`;
       values.set(key, clone(value));
-      return { etag: "etag", modified: true };
+      etags.set(key, etag);
+      return { etag, modified: true };
     }
   };
   let requestedStore: unknown;
@@ -475,6 +651,31 @@ test("Blob adapter uses strong conditional writes, bounded scans, and fail-close
   assert.deepEqual(writes.map(({ key, options }) => [key, options?.onlyIfNew]), [
     ["users/admin", true], ["users/admin", true], ["controls/setup-lock", true], ["controls/setup-lock", true]
   ]);
+
+  const attemptStore = store as unknown as {
+    getAttempt(key: string): Promise<{ attempt: LoginAttempt; etag: string } | null>;
+    setAttempt(key: string, attempt: LoginAttempt, expectedEtag: string | null): Promise<boolean>;
+  };
+  const attempt: LoginAttempt = {
+    count: 1,
+    windowStartedAt: "2026-08-26T10:00:00.000Z",
+    lastAttemptAt: "2026-08-26T10:00:00.000Z"
+  };
+  assert.equal(await attemptStore.setAttempt("cas-key", attempt, null), true);
+  const firstAttempt = await attemptStore.getAttempt("cas-key");
+  assert.ok(firstAttempt?.etag);
+  assert.deepEqual(firstAttempt?.attempt, attempt);
+  assert.equal(await attemptStore.setAttempt("cas-key", { ...attempt, count: 2 }, "stale-etag"), false);
+  assert.equal(await attemptStore.setAttempt("cas-key", { ...attempt, count: 2 }, firstAttempt!.etag), true);
+  const updatedAttempt = await attemptStore.getAttempt("cas-key");
+  assert.equal(updatedAttempt?.attempt.count, 2);
+  assert.notEqual(updatedAttempt?.etag, firstAttempt?.etag);
+  const attemptKey = `attempts/${hashSecret("cas-key")}`;
+  etags.delete(attemptKey);
+  await assert.rejects(() => attemptStore.getAttempt("cas-key"), /ETag/);
+  etags.set(attemptKey, updatedAttempt!.etag);
+  values.set(attemptKey, { ...attempt, count: 0 });
+  await assert.rejects(() => attemptStore.getAttempt("cas-key"), /login-attempt data/);
 
   const matchingHash = "b".repeat(64);
   const otherHash = "c".repeat(64);

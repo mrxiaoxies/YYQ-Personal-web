@@ -88,8 +88,13 @@ type AdminAuthServiceDependencies = {
   readEnvironment?: EnvironmentReader;
 };
 
+type SetupControl =
+  | { state: "pending"; tokenFingerprint: string; createdAt: string }
+  | { state: "completed"; tokenFingerprint: string; createdAt: string; completedAt: string };
+
 const SETUP_CONTROL_KEY = "setup-lock";
 const LOGIN_FAILURE_LIMIT = 5;
+const LOGIN_ATTEMPT_CAS_RETRIES = 8;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const SESSION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 const SESSION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -157,6 +162,33 @@ function currentAttempt(attempt: LoginAttempt | null, nowMs: number) {
   return nowMs - startedAt >= LOGIN_WINDOW_MS ? null : attempt;
 }
 
+function parseSetupControl(value: Record<string, unknown> | null): SetupControl | null {
+  if (value === null) return null;
+  const keys = Object.keys(value).sort();
+  const pendingKeys = ["createdAt", "state", "tokenFingerprint"];
+  const completedKeys = ["completedAt", "createdAt", "state", "tokenFingerprint"];
+  const expectedKeys = value.state === "pending" ? pendingKeys : value.state === "completed" ? completedKeys : null;
+  const validDate = (candidate: unknown) => {
+    if (typeof candidate !== "string") return false;
+    const timestamp = Date.parse(candidate);
+    return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === candidate;
+  };
+
+  if (
+    !expectedKeys ||
+    keys.length !== expectedKeys.length ||
+    !keys.every((key, index) => key === expectedKeys[index]) ||
+    typeof value.tokenFingerprint !== "string" ||
+    !/^[0-9a-f]{64}$/.test(value.tokenFingerprint) ||
+    !validDate(value.createdAt) ||
+    (value.state === "completed" && !validDate(value.completedAt))
+  ) {
+    throw new AdminAuthError("setup_closed");
+  }
+
+  return value as SetupControl;
+}
+
 export function createAdminAuthService({
   store = createBlobAdminStore(),
   now = () => new Date(),
@@ -177,21 +209,27 @@ export function createAdminAuthService({
     return sessionToken;
   }
 
-  async function recordLoginFailure(key: string, attempt: LoginAttempt | null, date: Date) {
-    const activeAttempt = currentAttempt(attempt, date.getTime());
+  async function recordLoginFailure(key: string, date: Date) {
     const timestamp = date.toISOString();
-    await store.setAttempt(key, {
-      count: (activeAttempt?.count ?? 0) + 1,
-      windowStartedAt: activeAttempt?.windowStartedAt ?? timestamp,
-      lastAttemptAt: timestamp
-    });
+    for (let retry = 0; retry < LOGIN_ATTEMPT_CAS_RETRIES; retry += 1) {
+      const snapshot = await store.getAttempt(key);
+      const activeAttempt = currentAttempt(snapshot?.attempt ?? null, date.getTime());
+      if (activeAttempt && activeAttempt.count >= LOGIN_FAILURE_LIMIT) {
+        throw new AdminAuthError("rate_limited");
+      }
+      const nextAttempt: LoginAttempt = {
+        count: (activeAttempt?.count ?? 0) + 1,
+        windowStartedAt: activeAttempt?.windowStartedAt ?? timestamp,
+        lastAttemptAt: timestamp
+      };
+      if (await store.setAttempt(key, nextAttempt, snapshot?.etag ?? null)) return;
+    }
+    throw new AdminAuthError("rate_limited");
   }
 
   return {
     async setup(input) {
-      const existingUser = await store.getOnlyUser();
-      const existingLock = await store.getControl(SETUP_CONTROL_KEY);
-      if (existingUser || existingLock) throw new AdminAuthError("setup_closed");
+      if (await store.getOnlyUser()) throw new AdminAuthError("setup_closed");
 
       const configuredToken = readEnvironment("ADMIN_SETUP_TOKEN");
       if (!configuredOperatorToken(configuredToken)) throw new AdminAuthError("setup_unavailable");
@@ -205,11 +243,24 @@ export function createAdminAuthService({
       const password = await createPasswordRecord(input.password);
       const date = currentDate(now);
       const timestamp = date.toISOString();
-      const claimed = await store.setControlOnce(SETUP_CONTROL_KEY, {
-        consumedAt: timestamp,
-        tokenFingerprint: configuredFingerprint
-      });
-      if (!claimed) throw new AdminAuthError("setup_closed");
+      let control = parseSetupControl(await store.getControl(SETUP_CONTROL_KEY));
+      if (control === null) {
+        const pending: SetupControl = {
+          state: "pending",
+          tokenFingerprint: configuredFingerprint,
+          createdAt: timestamp
+        };
+        control = (await store.setControlOnce(SETUP_CONTROL_KEY, pending))
+          ? pending
+          : parseSetupControl(await store.getControl(SETUP_CONTROL_KEY));
+      }
+      if (
+        control === null ||
+        control.state !== "pending" ||
+        !safeSecretEqual(control.tokenFingerprint, configuredFingerprint)
+      ) {
+        throw new AdminAuthError("setup_closed");
+      }
 
       const user: AdminUser = {
         id: randomUUID(),
@@ -224,6 +275,12 @@ export function createAdminAuthService({
         active: true
       };
       if (!(await store.createUserOnce(user))) throw new AdminAuthError("setup_closed");
+      await store.setControl(SETUP_CONTROL_KEY, {
+        state: "completed",
+        tokenFingerprint: control.tokenFingerprint,
+        createdAt: control.createdAt,
+        completedAt: timestamp
+      });
 
       return { sessionToken: await createSession(user.id, date), user: publicUser(user) };
     },
@@ -241,8 +298,8 @@ export function createAdminAuthService({
 
       const date = currentDate(now);
       const storedAttempt = await store.getAttempt(input.rateLimitKey);
-      const activeAttempt = currentAttempt(storedAttempt, date.getTime());
-      if (activeAttempt?.count === LOGIN_FAILURE_LIMIT) throw new AdminAuthError("rate_limited");
+      const activeAttempt = currentAttempt(storedAttempt?.attempt ?? null, date.getTime());
+      if (activeAttempt && activeAttempt.count >= LOGIN_FAILURE_LIMIT) throw new AdminAuthError("rate_limited");
 
       const user = await store.getUserByEmail(emailNormalized);
       const verified = await verifyPassword(
@@ -252,7 +309,7 @@ export function createAdminAuthService({
           : DUMMY_PASSWORD_RECORD
       );
       if (!user || !user.active || !verified) {
-        await recordLoginFailure(input.rateLimitKey, activeAttempt, date);
+        await recordLoginFailure(input.rateLimitKey, date);
         throw new AdminAuthError("invalid_credentials");
       }
 
