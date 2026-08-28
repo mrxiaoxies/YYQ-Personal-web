@@ -26,6 +26,11 @@ type FakeWrite = {
   value: unknown;
 };
 
+type InternalRevisionRecord = RevisionSummary & {
+  snapshot: SiteContentDocument;
+  targetVersion: string;
+};
+
 const ACTOR: PublicAdminUser = {
   email: "admin@example.com",
   id: "private-admin-id",
@@ -54,12 +59,18 @@ function createUuidSequence() {
   };
 }
 
-function createFakeBlobStore(options: { deleteFailures?: number } = {}) {
+function createFakeBlobStore(options: {
+  currentWriteConflicts?: number;
+  deleteFailures?: number;
+  revisionWriteFailures?: number;
+} = {}) {
   const blobs = new Map<string, FakeBlob>();
   const writes: FakeWrite[] = [];
   const deletes: string[] = [];
   let etagVersion = 0;
+  let remainingCurrentWriteConflicts = options.currentWriteConflicts ?? 0;
   let remainingDeleteFailures = options.deleteFailures ?? 0;
+  let remainingRevisionWriteFailures = options.revisionWriteFailures ?? 0;
 
   const store = {
     async delete(key: string) {
@@ -87,6 +98,14 @@ function createFakeBlobStore(options: { deleteFailures?: number } = {}) {
     },
     async setJSON(key: string, value: unknown, setOptions?: FakeSetOptions) {
       writes.push({ key, options: setOptions, value: clone(value) });
+      if (key.startsWith("revisions/") && remainingRevisionWriteFailures > 0) {
+        remainingRevisionWriteFailures -= 1;
+        throw new Error("simulated revision write failure");
+      }
+      if (key === "current" && remainingCurrentWriteConflicts > 0) {
+        remainingCurrentWriteConflicts -= 1;
+        return { modified: false };
+      }
       const current = blobs.get(key);
       if (setOptions?.onlyIfNew === true && current !== undefined) return { modified: false };
       if (typeof setOptions?.onlyIfMatch === "string" && current?.etag !== setOptions.onlyIfMatch) {
@@ -117,7 +136,11 @@ function createFakeBlobStore(options: { deleteFailures?: number } = {}) {
   };
 }
 
-function createHarness(options: { deleteFailures?: number } = {}) {
+function createHarness(options: {
+  currentWriteConflicts?: number;
+  deleteFailures?: number;
+  revisionWriteFailures?: number;
+} = {}) {
   const clock = createClock();
   const fake = createFakeBlobStore(options);
   let requestedStore: unknown;
@@ -140,6 +163,47 @@ function mutateHomeTitle(document: SiteContentDocument, title: string) {
   return sections;
 }
 
+function withDocumentVersion(document: SiteContentDocument, version: string, updatedAt = "2026-08-26T09:00:00.000Z"): SiteContentDocument {
+  return {
+    ...clone(document),
+    updatedAt,
+    version
+  };
+}
+
+function committedRevision(input: {
+  actorEmail?: string;
+  createdAt: string;
+  id: string;
+  reason?: "save" | "restore";
+  snapshot: SiteContentDocument;
+  targetVersion: string;
+}): InternalRevisionRecord {
+  return {
+    actorEmail: input.actorEmail ?? ACTOR.email,
+    createdAt: input.createdAt,
+    id: input.id,
+    reason: input.reason ?? "save",
+    snapshot: clone(input.snapshot),
+    sourceVersion: input.snapshot.version,
+    targetVersion: input.targetVersion
+  };
+}
+
+function publicSummary(record: InternalRevisionRecord): RevisionSummary {
+  return {
+    actorEmail: record.actorEmail,
+    createdAt: record.createdAt,
+    id: record.id,
+    reason: record.reason,
+    sourceVersion: record.sourceVersion
+  };
+}
+
+function revisionWrites(fake: ReturnType<typeof createFakeBlobStore>): Array<FakeWrite & { value: InternalRevisionRecord }> {
+  return fake.writes.filter((write): write is FakeWrite & { value: InternalRevisionRecord } => write.key.startsWith("revisions/"));
+}
+
 async function expectContentConflict(operation: () => Promise<unknown>) {
   await assert.rejects(operation, (error: unknown) => {
     assert.ok(error instanceof SiteContentStoreError);
@@ -159,7 +223,7 @@ test("getCurrent returns the built-in fallback without writing Blob data", async
   assert.deepEqual(fake.deletes, []);
 });
 
-test("first save uses onlyIfNew, creates a revision for the replaced fallback, and stores only the actor email", async () => {
+test("first save writes the revision ahead of current and stores only the actor email", async () => {
   const { fake, store } = createHarness();
   const saved = await store.save(
     {
@@ -172,17 +236,35 @@ test("first save uses onlyIfNew, creates a revision for the replaced fallback, a
   assert.equal(saved.document.sections.home.titleLines[0], "first published title");
   assert.notEqual(saved.document.version, defaultSiteContent.version);
   assert.match(saved.document.version, /^content-2026-08-26T10:00:00\.000Z-[0-9a-f-]{36}$/);
-  assert.match(saved.document.updatedAt, /^2026-08-26T10:00:00\.000Z-[0-9a-f-]{36}$/);
+  assert.equal(saved.document.updatedAt, "2026-08-26T10:00:00.000Z");
   assert.equal(saved.revision.sourceVersion, defaultSiteContent.version);
   assert.equal(saved.revision.actorEmail, ACTOR.email);
 
+  assert.deepEqual(fake.writes.map((write) => write.key.startsWith("revisions/") ? "revision" : write.key), ["revision", "current"]);
+  const [revisionWrite] = revisionWrites(fake);
+  assert.deepEqual(revisionWrite.options, { onlyIfNew: true });
+  assert.equal(revisionWrite.value.targetVersion, saved.document.version);
+  assert.equal(JSON.stringify(revisionWrite.value).includes(ACTOR.id), false);
+  assert.deepEqual(revisionWrite.value.snapshot, defaultSiteContent);
   const currentWrite = fake.writes.find((write) => write.key === "current");
   assert.deepEqual(currentWrite?.options, { onlyIfNew: true });
-  const revisionWrite = fake.writes.find((write) => write.key.startsWith("revisions/"));
-  assert.ok(revisionWrite);
-  assert.equal(JSON.stringify(revisionWrite.value).includes(ACTOR.id), false);
-  assert.deepEqual((revisionWrite.value as { snapshot: SiteContentDocument }).snapshot, defaultSiteContent);
   assert.deepEqual(await store.listRevisions(), [saved.revision]);
+});
+
+test("same-millisecond saves keep updatedAt semantic and use UUIDs to avoid version collisions", async () => {
+  const { store } = createHarness();
+  const first = await store.save(
+    { expectedVersion: defaultSiteContent.version, sections: mutateHomeTitle(defaultSiteContent, "first") },
+    ACTOR
+  );
+  const second = await store.save(
+    { expectedVersion: first.document.version, sections: mutateHomeTitle(first.document, "second") },
+    ACTOR
+  );
+
+  assert.equal(first.document.updatedAt, "2026-08-26T10:00:00.000Z");
+  assert.equal(second.document.updatedAt, "2026-08-26T10:00:00.000Z");
+  assert.notEqual(first.document.version, second.document.version);
 });
 
 test("existing save uses onlyIfMatch and creates a revision for the replaced current snapshot", async () => {
@@ -200,10 +282,26 @@ test("existing save uses onlyIfMatch and creates a revision for the replaced cur
   const currentWrites = fake.writes.filter((write) => write.key === "current");
   assert.deepEqual(currentWrites.map((write) => write.options), [
     { onlyIfNew: true },
-    { onlyIfMatch: "etag-1" }
+    { onlyIfMatch: "etag-2" }
   ]);
-  const revisionWrites = fake.writes.filter((write) => write.key.startsWith("revisions/"));
-  assert.deepEqual((revisionWrites[1].value as { snapshot: SiteContentDocument }).snapshot, first.document);
+  const revisions = revisionWrites(fake);
+  assert.deepEqual(revisions[1].value.snapshot, first.document);
+  assert.equal(revisions[1].value.targetVersion, second.document.version);
+});
+
+test("revision write failure leaves current unchanged", async () => {
+  const { fake, store } = createHarness({ revisionWriteFailures: 1 });
+
+  await assert.rejects(
+    () => store.save(
+      { expectedVersion: defaultSiteContent.version, sections: mutateHomeTitle(defaultSiteContent, "lost revision") },
+      ACTOR
+    ),
+    /simulated revision write failure/
+  );
+
+  assert.equal((await store.getCurrent()).version, defaultSiteContent.version);
+  assert.equal(fake.writes.some((write) => write.key === "current"), false);
 });
 
 test("stale writes return content_conflict and do not write a new revision", async () => {
@@ -223,6 +321,41 @@ test("stale writes return content_conflict and do not write a new revision", asy
 
   assert.equal(fake.writes.length, writesBeforeConflict);
   assert.equal((await store.getCurrent()).sections.home.titleLines[0], "first");
+});
+
+test("current CAS failure deletes the write-ahead ghost and hides it from public revision APIs", async () => {
+  const { fake, store } = createHarness({ currentWriteConflicts: 1 });
+
+  await expectContentConflict(() =>
+    store.save(
+      { expectedVersion: defaultSiteContent.version, sections: mutateHomeTitle(defaultSiteContent, "ghost") },
+      ACTOR
+    )
+  );
+
+  const [ghostWrite] = revisionWrites(fake);
+  assert.ok(ghostWrite);
+  assert.deepEqual(fake.deletes, [ghostWrite.key]);
+  assert.equal(fake.blobs.has(ghostWrite.key), false);
+  assert.deepEqual(await store.listRevisions(), []);
+  await expectContentConflict(() => store.restore(ghostWrite.value.id, defaultSiteContent.version, ACTOR));
+});
+
+test("ghost delete failure still keeps ghost revisions out of list and restore", async () => {
+  const { fake, store } = createHarness({ currentWriteConflicts: 1, deleteFailures: 10 });
+
+  await expectContentConflict(() =>
+    store.save(
+      { expectedVersion: defaultSiteContent.version, sections: mutateHomeTitle(defaultSiteContent, "undeleted ghost") },
+      ACTOR
+    )
+  );
+
+  const [ghostWrite] = revisionWrites(fake);
+  assert.ok(fake.blobs.has(ghostWrite.key));
+  assert.equal(fake.deletes.filter((key) => key === ghostWrite.key).length, 3);
+  assert.deepEqual(await store.listRevisions(), []);
+  await expectContentConflict(() => store.restore(ghostWrite.value.id, defaultSiteContent.version, ACTOR));
 });
 
 test("concurrent writers with the same expected version leave one success and stale conflicts", async () => {
@@ -247,8 +380,8 @@ test("concurrent writers with the same expected version leave one success and st
   assert.equal((await store.listRevisions()).length, 1);
 });
 
-test("restore validates revision ids and publishes the revision snapshot as a new version", async () => {
-  const { store } = createHarness();
+test("restore validates revision ids and publishes the revision snapshot as a new version in the committed chain", async () => {
+  const { fake, store } = createHarness();
   const first = await store.save(
     { expectedVersion: defaultSiteContent.version, sections: mutateHomeTitle(defaultSiteContent, "first") },
     ACTOR
@@ -268,35 +401,53 @@ test("restore validates revision ids and publishes the revision snapshot as a ne
   assert.equal(revisions.length, 3);
   assert.equal(revisions.at(-1)?.reason, "restore");
   assert.equal(revisions.at(-1)?.sourceVersion, second.document.version);
+  const internalRevisions = revisionWrites(fake).map((write) => write.value);
+  assert.deepEqual(internalRevisions.map((record) => [record.sourceVersion, record.targetVersion]), [
+    [defaultSiteContent.version, first.document.version],
+    [first.document.version, second.document.version],
+    [second.document.version, restored.version]
+  ]);
+  assert.equal("targetVersion" in revisions.at(-1)!, false);
 });
 
-test("listRevisions returns only strictly valid canonical revision records in lexical order", async () => {
+test("listRevisions returns only strict canonical records that are reachable from current", async () => {
   const { fake, store } = createHarness();
-  const validOld: RevisionSummary = {
-    actorEmail: ACTOR.email,
+  const oldDocument = withDocumentVersion(defaultSiteContent, "old-version", "2026-08-26T08:00:00.000Z");
+  const middleDocument = withDocumentVersion(defaultSiteContent, "middle-version", "2026-08-26T09:00:00.000Z");
+  const currentDocument = withDocumentVersion(defaultSiteContent, "current-version", "2026-08-26T10:00:00.000Z");
+  const validOld = committedRevision({
     createdAt: "2026-08-26T09:00:00.000Z",
     id: "2026-08-26T09:00:00.000Z-00000000-0000-4000-8000-000000000101",
-    reason: "save",
-    sourceVersion: "old"
-  };
-  const validNew: RevisionSummary = {
-    actorEmail: ACTOR.email,
+    snapshot: oldDocument,
+    targetVersion: middleDocument.version
+  });
+  const validNew = committedRevision({
     createdAt: "2026-08-26T10:00:00.000Z",
     id: "2026-08-26T10:00:00.000Z-00000000-0000-4000-8000-000000000102",
     reason: "restore",
-    sourceVersion: "new"
-  };
-  fake.put(`revisions/${validNew.id}`, { ...validNew, snapshot: defaultSiteContent });
-  fake.put("revisions/2026-08-26T10:30:00.000Z-00000000-0000-4000-8000-000000000103", { ...validNew, extra: true, snapshot: defaultSiteContent });
-  fake.put(`revisions/${validOld.id}`, { ...validOld, snapshot: defaultSiteContent });
-  fake.put("revisions/not-a-canonical-id", { ...validOld, id: "not-a-canonical-id", snapshot: defaultSiteContent });
-  fake.put("revision-backups/2026-08-26T11:00:00.000Z-00000000-0000-4000-8000-000000000104", { ...validOld, snapshot: defaultSiteContent });
+    snapshot: middleDocument,
+    targetVersion: currentDocument.version
+  });
+  const ghost = committedRevision({
+    createdAt: "2026-08-26T10:30:00.000Z",
+    id: "2026-08-26T10:30:00.000Z-00000000-0000-4000-8000-000000000103",
+    snapshot: currentDocument,
+    targetVersion: "ghost-target-version"
+  });
+  fake.put("current", currentDocument, "current-etag");
+  fake.put(`revisions/${validNew.id}`, validNew);
+  fake.put("revisions/2026-08-26T10:45:00.000Z-00000000-0000-4000-8000-000000000104", { ...validNew, extra: true });
+  fake.put(`revisions/${validOld.id}`, validOld);
+  fake.put(`revisions/${ghost.id}`, ghost);
+  fake.put("revisions/not-a-canonical-id", { ...validOld, id: "not-a-canonical-id" });
+  fake.put("revision-backups/2026-08-26T11:00:00.000Z-00000000-0000-4000-8000-000000000105", validOld);
 
-  assert.deepEqual(await store.listRevisions(), [validOld, validNew]);
+  assert.deepEqual(await store.listRevisions(), [publicSummary(validOld), publicSummary(validNew)]);
+  await expectContentConflict(() => store.restore(ghost.id, currentDocument.version, ACTOR));
 });
 
-test("retention keeps exactly the newest 20 revision keys and ignores delete failures after current is saved", async () => {
-  const { clock, fake, store } = createHarness({ deleteFailures: 1 });
+test("public retention returns newest 20 committed revisions while physical cleanup is best effort", async () => {
+  const { clock, fake, store } = createHarness({ deleteFailures: 100 });
   let expectedVersion = defaultSiteContent.version;
 
   for (let index = 0; index < 22; index += 1) {
@@ -308,11 +459,11 @@ test("retention keeps exactly the newest 20 revision keys and ignores delete fai
     clock.advance(1);
   }
 
+  const publicRevisions = await store.listRevisions();
   assert.equal((await store.getCurrent()).sections.home.titleLines[0], "title 21");
   assert.ok(fake.deletes.every((key) => key.startsWith("revisions/")));
-  assert.equal(fake.deletes.length, 3);
-  assert.equal((await store.listRevisions()).length, 20);
-
+  assert.equal(publicRevisions.length, 20);
+  assert.ok([...fake.blobs.keys()].filter((key) => key.startsWith("revisions/")).length > 20);
 });
 
 test("schema parse failures and current blobs without etags fail closed", async () => {
