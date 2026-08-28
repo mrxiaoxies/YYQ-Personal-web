@@ -140,6 +140,11 @@ function revisionIdFromTargetVersion(version: string): string | null {
   return id !== undefined && parseRevisionId(id) !== null ? id : null;
 }
 
+function isCompatibleStoredVersion(version: string): boolean {
+  // Existing non-content versions are opaque legacy chain tails; content versions must be canonical.
+  return !/^content-/i.test(version) || revisionIdFromTargetVersion(version) !== null;
+}
+
 function parseRevisionRecord(value: unknown, key: string): RevisionRecord | null {
   if (!key.startsWith(REVISION_PREFIX)) return null;
   const idFromKey = key.slice(REVISION_PREFIX.length);
@@ -151,6 +156,7 @@ function parseRevisionRecord(value: unknown, key: string): RevisionRecord | null
     value.createdAt !== parsedId.timestamp ||
     !requiredText(value.actorEmail, 320) ||
     !requiredText(value.sourceVersion, 200) ||
+    !isCompatibleStoredVersion(value.sourceVersion) ||
     !requiredText(value.targetVersion, 200) ||
     value.targetVersion !== targetVersionForRevisionId(idFromKey) ||
     (value.reason !== "save" && value.reason !== "restore")
@@ -223,13 +229,17 @@ function createRevisionRecord(input: {
   snapshot: SiteContentDocument;
 }): RevisionRecord {
   const { timestamp: createdAt } = assertRevisionId(input.id);
+  const snapshot = parseDocument(input.snapshot, "Site content revision snapshot");
+  if (!isCompatibleStoredVersion(snapshot.version)) {
+    throw invalidContent("Site content revision snapshot is not valid site content.");
+  }
   const record: RevisionRecord = {
     actorEmail: input.actorEmail,
     createdAt,
     id: input.id,
     reason: input.reason,
-    snapshot: parseDocument(input.snapshot, "Site content revision snapshot"),
-    sourceVersion: input.snapshot.version,
+    snapshot,
+    sourceVersion: snapshot.version,
     targetVersion: targetVersionForRevisionId(input.id)
   };
   return record;
@@ -268,7 +278,7 @@ export function createBlobSiteContentStore(options: CreateBlobSiteContentStoreOp
       throw contentConflict("Current site content Blob is missing an ETag.");
     }
     const document = parseDocument(result.data, "Current site content Blob");
-    if (/^content-/i.test(document.version) && revisionIdFromTargetVersion(document.version) === null) {
+    if (!isCompatibleStoredVersion(document.version)) {
       throw invalidContent("Current site content Blob is not valid site content.");
     }
     return {

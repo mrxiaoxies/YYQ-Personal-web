@@ -234,6 +234,41 @@ const INVALID_REVISION_IDS = [
   "2026-02-29T00:00:00.000Z-00000000-0000-4000-8000-000000000305"
 ] as const;
 
+const INVALID_HISTORICAL_CONTENT_VERSIONS = [
+  {
+    label: "invalid timestamp",
+    version: "content-2026-99-99T99:99:99.999Z-00000000-0000-4000-8000-000000000601"
+  },
+  {
+    label: "invalid UUID",
+    version: "content-2026-08-26T09:00:00.000Z-00000000-0000-0000-0000-000000000602"
+  }
+] as const;
+
+function seedHistoricalSourceChain(fake: ReturnType<typeof createFakeBlobStore>, sourceVersion: string) {
+  const historyId = "2026-08-26T10:00:00.000Z-00000000-0000-4000-8000-000000000603";
+  const headId = "2026-08-26T11:00:00.000Z-00000000-0000-4000-8000-000000000604";
+  const historicalSource = withDocumentVersion(defaultSiteContent, sourceVersion, "2026-08-26T09:00:00.000Z");
+  const historicalTarget = withDocumentVersion(defaultSiteContent, targetVersionFor(historyId), "2026-08-26T10:00:00.000Z");
+  const currentDocument = withDocumentVersion(defaultSiteContent, targetVersionFor(headId), "2026-08-26T11:00:00.000Z");
+  const history = committedRevision({
+    createdAt: "2026-08-26T10:00:00.000Z",
+    id: historyId,
+    snapshot: historicalSource,
+    targetVersion: historicalTarget.version
+  });
+  const head = committedRevision({
+    createdAt: "2026-08-26T11:00:00.000Z",
+    id: headId,
+    snapshot: historicalTarget,
+    targetVersion: currentDocument.version
+  });
+  fake.put("current", currentDocument, "current-etag");
+  fake.put(`revisions/${history.id}`, history);
+  fake.put(`revisions/${head.id}`, head);
+  return { currentDocument, head, history };
+}
+
 test("getCurrent returns the built-in fallback without writing Blob data", async () => {
   const { fake, requestedStore, store } = createHarness();
 
@@ -473,7 +508,7 @@ test("listRevisions returns only strict canonical records that are reachable fro
   await expectContentConflict(() => store.restore(ghost.id, currentDocument.version, ACTOR));
 });
 
-test("listRevisions excludes revision ids whose ISO timestamps are impossible or normalized", async () => {
+test("listRevisions excludes chain edges with impossible or normalized revision timestamps", async () => {
   const headId = "2026-08-26T10:00:00.000Z-00000000-0000-4000-8000-000000000401";
 
   for (const invalidId of INVALID_REVISION_IDS) {
@@ -496,7 +531,7 @@ test("listRevisions excludes revision ids whose ISO timestamps are impossible or
     fake.put(`revisions/${head.id}`, head);
     fake.put(`revisions/${invalid.id}`, invalid);
 
-    assert.deepEqual(await store.listRevisions(), [publicSummary(head)], invalidId);
+    assert.deepEqual(await store.listRevisions(), [], invalidId);
   }
 });
 
@@ -540,6 +575,54 @@ test("canonical leap-day revision ids and content versions remain valid", async 
   fake.put(`revisions/${id}`, leapDay);
 
   assert.deepEqual(await store.listRevisions(), [publicSummary(leapDay)]);
+});
+
+for (const scenario of INVALID_HISTORICAL_CONTENT_VERSIONS) {
+  test(`historical source content version is excluded from list and cannot delete the legal head (${scenario.label})`, async () => {
+    const { fake, store } = createHarness();
+    const { head } = seedHistoricalSourceChain(fake, scenario.version);
+
+    assert.deepEqual(await store.listRevisions(), [publicSummary(head)]);
+    assert.equal(fake.blobs.has(`revisions/${head.id}`), true);
+    assert.equal(fake.deletes.includes(`revisions/${head.id}`), false);
+  });
+
+  test(`restore rejects a revision with a non-canonical historical source content version (${scenario.label})`, async () => {
+    const { fake, store } = createHarness();
+    const { currentDocument, history } = seedHistoricalSourceChain(fake, scenario.version);
+
+    await expectContentConflict(() => store.restore(history.id, currentDocument.version, ACTOR));
+    assert.equal((await store.getCurrent()).version, currentDocument.version);
+  });
+}
+
+test("save rejects a fallback snapshot with a non-canonical source content version before Blob writes", async () => {
+  const fake = createFakeBlobStore();
+  const clock = createClock();
+  const invalidDefault = withDocumentVersion(defaultSiteContent, INVALID_HISTORICAL_CONTENT_VERSIONS[0].version);
+  const store = createBlobSiteContentStore({
+    createStore: () => fake.store as never,
+    defaultContent: invalidDefault,
+    now: clock.now,
+    randomUUID: createUuidSequence()
+  });
+
+  await expectInvalidContent(() =>
+    store.save(
+      { expectedVersion: invalidDefault.version, sections: mutateHomeTitle(invalidDefault, "must not write") },
+      ACTOR
+    )
+  );
+  assert.deepEqual(fake.writes, []);
+});
+
+test("builtin and opaque non-content source versions remain compatible chain tails", async () => {
+  for (const sourceVersion of [defaultSiteContent.version, "legacy-import-v1"] as const) {
+    const { fake, store } = createHarness();
+    const { head, history } = seedHistoricalSourceChain(fake, sourceVersion);
+
+    assert.deepEqual(await store.listRevisions(), [publicSummary(history), publicSummary(head)]);
+  }
 });
 
 test("duplicate targetVersion ghost cannot replace or delete the canonical committed edge", async () => {
