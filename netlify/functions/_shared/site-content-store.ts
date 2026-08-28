@@ -61,8 +61,10 @@ const CURRENT_KEY = "current";
 const REVISION_PREFIX = "revisions/";
 const RETAINED_REVISIONS = 20;
 const DELETE_RETRIES = 3;
+const REVISION_WRITE_RETRIES = 3;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const REVISION_ID_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z-[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const CONTENT_VERSION_PATTERN = /^content-(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z-[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -119,6 +121,16 @@ function revisionKey(id: string): string {
   return `${REVISION_PREFIX}${id}`;
 }
 
+function targetVersionForRevisionId(id: string): string {
+  assertRevisionId(id);
+  return `content-${id}`;
+}
+
+function revisionIdFromTargetVersion(version: string): string | null {
+  const match = CONTENT_VERSION_PATTERN.exec(version);
+  return match?.[1] ?? null;
+}
+
 function parseRevisionRecord(value: unknown, key: string): RevisionRecord | null {
   if (!key.startsWith(REVISION_PREFIX)) return null;
   const idFromKey = key.slice(REVISION_PREFIX.length);
@@ -130,6 +142,7 @@ function parseRevisionRecord(value: unknown, key: string): RevisionRecord | null
     !requiredText(value.actorEmail, 320) ||
     !requiredText(value.sourceVersion, 200) ||
     !requiredText(value.targetVersion, 200) ||
+    value.targetVersion !== targetVersionForRevisionId(idFromKey) ||
     (value.reason !== "save" && value.reason !== "restore")
   ) {
     return null;
@@ -169,65 +182,61 @@ function assertPublicActor(actor: PublicAdminUser): string {
   return actor.email;
 }
 
-function createDocument(sections: SiteContentDocument["sections"], publishedAt: Date, uuid: string): SiteContentDocument {
-  if (!UUID_PATTERN.test(uuid)) {
+function createDocument(sections: SiteContentDocument["sections"], publishedAt: Date, version: string): SiteContentDocument {
+  if (revisionIdFromTargetVersion(version) === null) {
     throw invalidContent("Generated site content version ID is not valid.");
   }
-  const updatedAt = publishedAt.toISOString();
   return parseDocument(
     {
       schemaVersion: 1,
-      version: `content-${updatedAt}-${uuid}`,
-      updatedAt,
+      version,
+      updatedAt: publishedAt.toISOString(),
       sections
     },
     "Generated current site content"
   );
 }
 
-function createRevisionRecord(input: {
-  actorEmail: string;
-  createdAt: Date;
-  idUuid: string;
-  reason: "save" | "restore";
-  snapshot: SiteContentDocument;
-  targetVersion: string;
-}): RevisionRecord {
-  if (!UUID_PATTERN.test(input.idUuid)) {
+function createRevisionId(createdAt: Date, uuid: string): string {
+  if (!UUID_PATTERN.test(uuid)) {
     throw invalidContent("Generated site content revision ID is not valid.");
   }
-  const createdAt = input.createdAt.toISOString();
+  const id = `${createdAt.toISOString()}-${uuid}`;
+  assertRevisionId(id);
+  return id;
+}
+
+function createRevisionRecord(input: {
+  actorEmail: string;
+  id: string;
+  reason: "save" | "restore";
+  snapshot: SiteContentDocument;
+}): RevisionRecord {
+  assertRevisionId(input.id);
+  const createdAt = input.id.slice(0, "2026-08-26T10:00:00.000Z".length);
   const record: RevisionRecord = {
     actorEmail: input.actorEmail,
     createdAt,
-    id: `${createdAt}-${input.idUuid}`,
+    id: input.id,
     reason: input.reason,
     snapshot: parseDocument(input.snapshot, "Site content revision snapshot"),
     sourceVersion: input.snapshot.version,
-    targetVersion: input.targetVersion
+    targetVersion: targetVersionForRevisionId(input.id)
   };
-  assertRevisionId(record.id);
   return record;
 }
 
 function committedChain(records: RevisionRecord[], currentVersion: string): RevisionRecord[] {
-  const byTargetVersion = new Map<string, RevisionRecord[]>();
-  for (const record of records) {
-    const existing = byTargetVersion.get(record.targetVersion) ?? [];
-    existing.push(record);
-    byTargetVersion.set(record.targetVersion, existing);
-  }
-  for (const candidates of byTargetVersion.values()) {
-    candidates.sort((left, right) => right.id.localeCompare(left.id));
-  }
-
+  const byId = new Map(records.map((record) => [record.id, record]));
   const chain: RevisionRecord[] = [];
   const seenVersions = new Set<string>();
   let cursor = currentVersion;
   while (!seenVersions.has(cursor)) {
     seenVersions.add(cursor);
-    const record = byTargetVersion.get(cursor)?.[0];
-    if (record === undefined) break;
+    const expectedRevisionId = revisionIdFromTargetVersion(cursor);
+    if (expectedRevisionId === null) break;
+    const record = byId.get(expectedRevisionId);
+    if (record === undefined || record.targetVersion !== cursor) break;
     chain.push(record);
     cursor = record.sourceVersion;
   }
@@ -264,11 +273,9 @@ export function createBlobSiteContentStore(options: CreateBlobSiteContentStoreOp
     }
   }
 
-  async function writeRevision(record: RevisionRecord): Promise<void> {
+  async function writeRevision(record: RevisionRecord): Promise<boolean> {
     const result = await store.setJSON(revisionKey(record.id), record, { onlyIfNew: true });
-    if (!result.modified) {
-      throw contentConflict("Site content revision already exists.");
-    }
+    return result.modified;
   }
 
   async function readAllRevisionRecords(): Promise<RevisionRecord[]> {
@@ -325,17 +332,27 @@ export function createBlobSiteContentStore(options: CreateBlobSiteContentStoreOp
     }
 
     const publishedAt = now();
-    const document = createDocument(input.sections, publishedAt, randomUUID());
-    const revision = createRevisionRecord({
-      actorEmail,
-      createdAt: publishedAt,
-      idUuid: randomUUID(),
-      reason: input.reason,
-      snapshot: current.document,
-      targetVersion: document.version
-    });
+    let document: SiteContentDocument | null = null;
+    let revision: RevisionRecord | null = null;
+    for (let attempt = 0; attempt < REVISION_WRITE_RETRIES; attempt += 1) {
+      const revisionId = createRevisionId(publishedAt, randomUUID());
+      const candidateDocument = createDocument(input.sections, publishedAt, targetVersionForRevisionId(revisionId));
+      const candidateRevision = createRevisionRecord({
+        actorEmail,
+        id: revisionId,
+        reason: input.reason,
+        snapshot: current.document
+      });
+      if (await writeRevision(candidateRevision)) {
+        document = candidateDocument;
+        revision = candidateRevision;
+        break;
+      }
+    }
+    if (document === null || revision === null) {
+      throw contentConflict("Site content revision already exists.");
+    }
 
-    await writeRevision(revision);
     try {
       await writeCurrent(document, current);
     } catch (error) {

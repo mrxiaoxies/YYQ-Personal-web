@@ -63,6 +63,7 @@ function createFakeBlobStore(options: {
   currentWriteConflicts?: number;
   deleteFailures?: number;
   revisionWriteFailures?: number;
+  randomUUID?: () => string;
 } = {}) {
   const blobs = new Map<string, FakeBlob>();
   const writes: FakeWrite[] = [];
@@ -140,6 +141,7 @@ function createHarness(options: {
   currentWriteConflicts?: number;
   deleteFailures?: number;
   revisionWriteFailures?: number;
+  randomUUID?: () => string;
 } = {}) {
   const clock = createClock();
   const fake = createFakeBlobStore(options);
@@ -151,7 +153,7 @@ function createHarness(options: {
     },
     defaultContent: defaultSiteContent,
     now: clock.now,
-    randomUUID: createUuidSequence()
+    randomUUID: options.randomUUID ?? createUuidSequence()
   });
 
   return { clock, fake, requestedStore: () => requestedStore, store };
@@ -169,6 +171,10 @@ function withDocumentVersion(document: SiteContentDocument, version: string, upd
     updatedAt,
     version
   };
+}
+
+function targetVersionFor(id: string): string {
+  return `content-${id}`;
 }
 
 function committedRevision(input: {
@@ -238,12 +244,15 @@ test("first save writes the revision ahead of current and stores only the actor 
   assert.match(saved.document.version, /^content-2026-08-26T10:00:00\.000Z-[0-9a-f-]{36}$/);
   assert.equal(saved.document.updatedAt, "2026-08-26T10:00:00.000Z");
   assert.equal(saved.revision.sourceVersion, defaultSiteContent.version);
+  assert.equal(saved.document.version, targetVersionFor(saved.revision.id));
   assert.equal(saved.revision.actorEmail, ACTOR.email);
 
   assert.deepEqual(fake.writes.map((write) => write.key.startsWith("revisions/") ? "revision" : write.key), ["revision", "current"]);
   const [revisionWrite] = revisionWrites(fake);
   assert.deepEqual(revisionWrite.options, { onlyIfNew: true });
+  assert.equal(revisionWrite.value.id, saved.revision.id);
   assert.equal(revisionWrite.value.targetVersion, saved.document.version);
+  assert.equal(saved.document.version, targetVersionFor(revisionWrite.value.id));
   assert.equal(JSON.stringify(revisionWrite.value).includes(ACTOR.id), false);
   assert.deepEqual(revisionWrite.value.snapshot, defaultSiteContent);
   const currentWrite = fake.writes.find((write) => write.key === "current");
@@ -412,18 +421,20 @@ test("restore validates revision ids and publishes the revision snapshot as a ne
 
 test("listRevisions returns only strict canonical records that are reachable from current", async () => {
   const { fake, store } = createHarness();
+  const validOldId = "2026-08-26T09:00:00.000Z-00000000-0000-4000-8000-000000000101";
+  const validNewId = "2026-08-26T10:00:00.000Z-00000000-0000-4000-8000-000000000102";
   const oldDocument = withDocumentVersion(defaultSiteContent, "old-version", "2026-08-26T08:00:00.000Z");
-  const middleDocument = withDocumentVersion(defaultSiteContent, "middle-version", "2026-08-26T09:00:00.000Z");
-  const currentDocument = withDocumentVersion(defaultSiteContent, "current-version", "2026-08-26T10:00:00.000Z");
+  const middleDocument = withDocumentVersion(defaultSiteContent, targetVersionFor(validOldId), "2026-08-26T09:00:00.000Z");
+  const currentDocument = withDocumentVersion(defaultSiteContent, targetVersionFor(validNewId), "2026-08-26T10:00:00.000Z");
   const validOld = committedRevision({
     createdAt: "2026-08-26T09:00:00.000Z",
-    id: "2026-08-26T09:00:00.000Z-00000000-0000-4000-8000-000000000101",
+    id: validOldId,
     snapshot: oldDocument,
     targetVersion: middleDocument.version
   });
   const validNew = committedRevision({
     createdAt: "2026-08-26T10:00:00.000Z",
-    id: "2026-08-26T10:00:00.000Z-00000000-0000-4000-8000-000000000102",
+    id: validNewId,
     reason: "restore",
     snapshot: middleDocument,
     targetVersion: currentDocument.version
@@ -432,7 +443,7 @@ test("listRevisions returns only strict canonical records that are reachable fro
     createdAt: "2026-08-26T10:30:00.000Z",
     id: "2026-08-26T10:30:00.000Z-00000000-0000-4000-8000-000000000103",
     snapshot: currentDocument,
-    targetVersion: "ghost-target-version"
+    targetVersion: targetVersionFor("2026-08-26T10:30:00.000Z-00000000-0000-4000-8000-000000000103")
   });
   fake.put("current", currentDocument, "current-etag");
   fake.put(`revisions/${validNew.id}`, validNew);
@@ -446,6 +457,83 @@ test("listRevisions returns only strict canonical records that are reachable fro
   await expectContentConflict(() => store.restore(ghost.id, currentDocument.version, ACTOR));
 });
 
+test("duplicate targetVersion ghost cannot replace or delete the canonical committed edge", async () => {
+  const { fake, store } = createHarness();
+  const legalId = "2026-08-26T10:00:00.000Z-00000000-0000-4000-8000-000000000201";
+  const ghostId = "2026-08-26T10:30:00.000Z-00000000-0000-4000-8000-000000000202";
+  const sourceDocument = withDocumentVersion(defaultSiteContent, "source-version", "2026-08-26T09:00:00.000Z");
+  const currentDocument = withDocumentVersion(defaultSiteContent, targetVersionFor(legalId), "2026-08-26T10:00:00.000Z");
+  const legal = committedRevision({
+    createdAt: "2026-08-26T10:00:00.000Z",
+    id: legalId,
+    snapshot: sourceDocument,
+    targetVersion: currentDocument.version
+  });
+  const ghost = committedRevision({
+    createdAt: "2026-08-26T10:30:00.000Z",
+    id: ghostId,
+    snapshot: sourceDocument,
+    targetVersion: currentDocument.version
+  });
+  fake.put("current", currentDocument, "current-etag");
+  fake.put(`revisions/${ghost.id}`, ghost);
+  fake.put(`revisions/${legal.id}`, legal);
+
+  assert.deepEqual(await store.listRevisions(), [publicSummary(legal)]);
+  await expectContentConflict(() => store.restore(ghost.id, currentDocument.version, ACTOR));
+  assert.equal(fake.deletes.includes(`revisions/${legal.id}`), false);
+});
+
+test("revision key collision retries with a new revision id before publishing current", async () => {
+  const { fake, store } = createHarness();
+  const collidingId = "2026-08-26T10:00:00.000Z-00000000-0000-4000-8000-000000000001";
+  const retriedId = "2026-08-26T10:00:00.000Z-00000000-0000-4000-8000-000000000002";
+  const existing = committedRevision({
+    createdAt: "2026-08-26T10:00:00.000Z",
+    id: collidingId,
+    snapshot: defaultSiteContent,
+    targetVersion: targetVersionFor(collidingId)
+  });
+  fake.put(`revisions/${collidingId}`, existing, "existing-revision-etag");
+
+  const saved = await store.save(
+    { expectedVersion: defaultSiteContent.version, sections: mutateHomeTitle(defaultSiteContent, "retried") },
+    ACTOR
+  );
+
+  assert.equal(saved.revision.id, retriedId);
+  assert.equal(saved.document.version, targetVersionFor(retriedId));
+  assert.deepEqual(fake.writes.map((write) => write.key.startsWith("revisions/") ? write.key : "current"), [
+    `revisions/${collidingId}`,
+    `revisions/${retriedId}`,
+    "current"
+  ]);
+  assert.equal((fake.writes.find((write) => write.key === "current")?.value as SiteContentDocument).version, targetVersionFor(retriedId));
+});
+
+test("revision key collision exhaustion never publishes current", async () => {
+  const collidingUuid = "00000000-0000-4000-8000-000000000001";
+  const collidingId = `2026-08-26T10:00:00.000Z-${collidingUuid}`;
+  const { fake, store } = createHarness({ randomUUID: () => collidingUuid });
+  const existing = committedRevision({
+    createdAt: "2026-08-26T10:00:00.000Z",
+    id: collidingId,
+    snapshot: defaultSiteContent,
+    targetVersion: targetVersionFor(collidingId)
+  });
+  fake.put(`revisions/${collidingId}`, existing, "existing-revision-etag");
+
+  await expectContentConflict(() =>
+    store.save(
+      { expectedVersion: defaultSiteContent.version, sections: mutateHomeTitle(defaultSiteContent, "cannot publish") },
+      ACTOR
+    )
+  );
+
+  assert.equal((await store.getCurrent()).version, defaultSiteContent.version);
+  assert.equal(fake.writes.some((write) => write.key === "current"), false);
+  assert.deepEqual(fake.blobs.get(`revisions/${collidingId}`)?.data, existing);
+});
 test("public retention returns newest 20 committed revisions while physical cleanup is best effort", async () => {
   const { clock, fake, store } = createHarness({ deleteFailures: 100 });
   let expectedVersion = defaultSiteContent.version;
