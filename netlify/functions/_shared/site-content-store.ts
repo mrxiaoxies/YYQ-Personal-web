@@ -63,8 +63,8 @@ const RETAINED_REVISIONS = 20;
 const DELETE_RETRIES = 3;
 const REVISION_WRITE_RETRIES = 3;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const REVISION_ID_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z-[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const CONTENT_VERSION_PATTERN = /^content-(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z-[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
+const REVISION_ID_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)-([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
+const CONTENT_VERSION_PATTERN = /^content-(.+)$/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -110,10 +110,18 @@ function parseUpdate(value: SiteContentUpdate): SiteContentUpdate {
   }
 }
 
-function assertRevisionId(id: string) {
-  if (!REVISION_ID_PATTERN.test(id) || id.includes("/") || id.includes("\\") || id.includes("..")) {
+function parseRevisionId(id: string): { timestamp: string; uuid: string } | null {
+  const match = REVISION_ID_PATTERN.exec(id);
+  if (match === null || !isIsoDate(match[1])) return null;
+  return { timestamp: match[1], uuid: match[2] };
+}
+
+function assertRevisionId(id: string): { timestamp: string; uuid: string } {
+  const parsed = parseRevisionId(id);
+  if (parsed === null || id.includes("/") || id.includes("\\") || id.includes("..")) {
     throw contentConflict("Invalid site content revision ID.");
   }
+  return parsed;
 }
 
 function revisionKey(id: string): string {
@@ -128,17 +136,19 @@ function targetVersionForRevisionId(id: string): string {
 
 function revisionIdFromTargetVersion(version: string): string | null {
   const match = CONTENT_VERSION_PATTERN.exec(version);
-  return match?.[1] ?? null;
+  const id = match?.[1];
+  return id !== undefined && parseRevisionId(id) !== null ? id : null;
 }
 
 function parseRevisionRecord(value: unknown, key: string): RevisionRecord | null {
   if (!key.startsWith(REVISION_PREFIX)) return null;
   const idFromKey = key.slice(REVISION_PREFIX.length);
-  if (!REVISION_ID_PATTERN.test(idFromKey)) return null;
+  const parsedId = parseRevisionId(idFromKey);
+  if (parsedId === null) return null;
   if (!isRecord(value) || !hasExactKeys(value, ["actorEmail", "createdAt", "id", "reason", "snapshot", "sourceVersion", "targetVersion"])) return null;
   if (
     value.id !== idFromKey ||
-    !isIsoDate(value.createdAt) ||
+    value.createdAt !== parsedId.timestamp ||
     !requiredText(value.actorEmail, 320) ||
     !requiredText(value.sourceVersion, 200) ||
     !requiredText(value.targetVersion, 200) ||
@@ -212,8 +222,7 @@ function createRevisionRecord(input: {
   reason: "save" | "restore";
   snapshot: SiteContentDocument;
 }): RevisionRecord {
-  assertRevisionId(input.id);
-  const createdAt = input.id.slice(0, "2026-08-26T10:00:00.000Z".length);
+  const { timestamp: createdAt } = assertRevisionId(input.id);
   const record: RevisionRecord = {
     actorEmail: input.actorEmail,
     createdAt,
@@ -258,8 +267,12 @@ export function createBlobSiteContentStore(options: CreateBlobSiteContentStoreOp
     if (typeof result.etag !== "string" || result.etag.length === 0) {
       throw contentConflict("Current site content Blob is missing an ETag.");
     }
+    const document = parseDocument(result.data, "Current site content Blob");
+    if (/^content-/i.test(document.version) && revisionIdFromTargetVersion(document.version) === null) {
+      throw invalidContent("Current site content Blob is not valid site content.");
+    }
     return {
-      document: parseDocument(result.data, "Current site content Blob"),
+      document,
       etag: result.etag,
       source: "blob"
     };

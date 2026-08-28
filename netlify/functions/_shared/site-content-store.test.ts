@@ -218,6 +218,22 @@ async function expectContentConflict(operation: () => Promise<unknown>) {
   });
 }
 
+async function expectInvalidContent(operation: () => Promise<unknown>) {
+  await assert.rejects(operation, (error: unknown) => {
+    assert.ok(error instanceof SiteContentStoreError);
+    assert.equal(error.code, "invalid_content");
+    return true;
+  });
+}
+
+const INVALID_REVISION_IDS = [
+  "2026-99-99T99:99:99.999Z-00000000-0000-4000-8000-000000000301",
+  "2026-13-01T00:00:00.000Z-00000000-0000-4000-8000-000000000302",
+  "2026-04-31T00:00:00.000Z-00000000-0000-4000-8000-000000000303",
+  "2026-01-01T24:00:00.000Z-00000000-0000-4000-8000-000000000304",
+  "2026-02-29T00:00:00.000Z-00000000-0000-4000-8000-000000000305"
+] as const;
+
 test("getCurrent returns the built-in fallback without writing Blob data", async () => {
   const { fake, requestedStore, store } = createHarness();
 
@@ -455,6 +471,75 @@ test("listRevisions returns only strict canonical records that are reachable fro
 
   assert.deepEqual(await store.listRevisions(), [publicSummary(validOld), publicSummary(validNew)]);
   await expectContentConflict(() => store.restore(ghost.id, currentDocument.version, ACTOR));
+});
+
+test("listRevisions excludes revision ids whose ISO timestamps are impossible or normalized", async () => {
+  const headId = "2026-08-26T10:00:00.000Z-00000000-0000-4000-8000-000000000401";
+
+  for (const invalidId of INVALID_REVISION_IDS) {
+    const { fake, store } = createHarness();
+    const invalidSource = withDocumentVersion(defaultSiteContent, targetVersionFor(invalidId), "2026-08-26T09:00:00.000Z");
+    const currentDocument = withDocumentVersion(defaultSiteContent, targetVersionFor(headId), "2026-08-26T10:00:00.000Z");
+    const head = committedRevision({
+      createdAt: "2026-08-26T10:00:00.000Z",
+      id: headId,
+      snapshot: invalidSource,
+      targetVersion: currentDocument.version
+    });
+    const invalid = committedRevision({
+      createdAt: "2026-08-26T09:00:00.000Z",
+      id: invalidId,
+      snapshot: defaultSiteContent,
+      targetVersion: invalidSource.version
+    });
+    fake.put("current", currentDocument, "current-etag");
+    fake.put(`revisions/${head.id}`, head);
+    fake.put(`revisions/${invalid.id}`, invalid);
+
+    assert.deepEqual(await store.listRevisions(), [publicSummary(head)], invalidId);
+  }
+});
+
+test("current content versions with impossible or normalized ISO timestamps fail closed", async () => {
+  for (const invalidId of INVALID_REVISION_IDS) {
+    const { fake, store } = createHarness();
+    fake.put("current", withDocumentVersion(defaultSiteContent, targetVersionFor(invalidId)), "current-etag");
+
+    await expectInvalidContent(() => store.getCurrent());
+    await expectInvalidContent(() => store.listRevisions());
+  }
+});
+
+test("revision createdAt must equal the canonical ISO timestamp encoded in its id", async () => {
+  const { fake, store } = createHarness();
+  const id = "2026-08-26T10:00:00.000Z-00000000-0000-4000-8000-000000000402";
+  const currentDocument = withDocumentVersion(defaultSiteContent, targetVersionFor(id), "2026-08-26T10:00:00.000Z");
+  const mismatched = committedRevision({
+    createdAt: "2026-08-26T10:00:01.000Z",
+    id,
+    snapshot: defaultSiteContent,
+    targetVersion: currentDocument.version
+  });
+  fake.put("current", currentDocument, "current-etag");
+  fake.put(`revisions/${id}`, mismatched);
+
+  assert.deepEqual(await store.listRevisions(), []);
+});
+
+test("canonical leap-day revision ids and content versions remain valid", async () => {
+  const { fake, store } = createHarness();
+  const id = "2024-02-29T23:59:59.999Z-00000000-0000-4000-8000-000000000403";
+  const currentDocument = withDocumentVersion(defaultSiteContent, targetVersionFor(id), "2024-02-29T23:59:59.999Z");
+  const leapDay = committedRevision({
+    createdAt: "2024-02-29T23:59:59.999Z",
+    id,
+    snapshot: defaultSiteContent,
+    targetVersion: currentDocument.version
+  });
+  fake.put("current", currentDocument, "current-etag");
+  fake.put(`revisions/${id}`, leapDay);
+
+  assert.deepEqual(await store.listRevisions(), [publicSummary(leapDay)]);
 });
 
 test("duplicate targetVersion ghost cannot replace or delete the canonical committed edge", async () => {
