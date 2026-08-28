@@ -396,6 +396,48 @@ test("service error codes map to the public HTTP contract", async () => {
   }
 });
 
+test("duplicate GET actions are rejected before me authentication", async () => {
+  const { handler, service } = createHandler();
+
+  const mixed = await handler(
+    new Request(`${SITE_ORIGIN}/api/admin/auth?action=me&action=logout`, {
+      method: "GET",
+      headers: { Cookie: `${ADMIN_SESSION_COOKIE}=${SESSION_TOKEN}`, Origin: SITE_ORIGIN }
+    }),
+    context()
+  );
+  await expectError(mixed, 422, "invalid_input");
+
+  const repeatedSame = await handler(
+    new Request(`${SITE_ORIGIN}/api/admin/auth?action=me&action=me`, {
+      method: "GET",
+      headers: { Cookie: `${ADMIN_SESSION_COOKIE}=${SESSION_TOKEN}`, Origin: SITE_ORIGIN }
+    }),
+    context()
+  );
+  await expectError(repeatedSame, 422, "invalid_input");
+  assert.equal(service.calls.authenticate.length, 0);
+});
+
+test("duplicate POST actions are rejected before logout side effects", async () => {
+  const { handler, service } = createHandler();
+  const response = await handler(
+    new Request(`${SITE_ORIGIN}/api/admin/auth?action=logout&action=me`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `${ADMIN_SESSION_COOKIE}=${SESSION_TOKEN}`,
+        Origin: SITE_ORIGIN
+      },
+      body: JSON.stringify({})
+    }),
+    context()
+  );
+
+  await expectError(response, 422, "invalid_input");
+  assert.equal(response.headers.get("Set-Cookie"), null);
+  assert.equal(service.calls.logout.length, 0);
+});
 test("unknown and missing actions are rejected strictly", async () => {
   const { handler } = createHandler();
   await expectError(

@@ -150,8 +150,9 @@ function requestId(context: Context) {
 }
 
 function strictAction(req: Request) {
-  const action = new URL(req.url).searchParams.get("action");
-  if (!action) throw new HttpAuthError("invalid_input");
+  const actions = new URL(req.url).searchParams.getAll("action");
+  if (actions.length !== 1 || actions[0] === "") throw new HttpAuthError("invalid_input");
+  const [action] = actions;
   if (!ALL_ACTIONS.has(action)) throw new HttpAuthError("not_found");
   return action;
 }
