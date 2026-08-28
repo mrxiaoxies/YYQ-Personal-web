@@ -47,6 +47,16 @@ type CurrentSnapshot = {
   source: "blob" | "default";
 };
 
+type RevisionReadResult = {
+  corruption: boolean;
+  records: RevisionRecord[];
+};
+
+type CommittedChainResult = {
+  chainNewestFirst: RevisionRecord[];
+  complete: boolean;
+};
+
 type SiteContentBlobStoreFactory = (options: GetStoreOptions & { consistency: "strong"; name: string }) => Store;
 
 type CreateBlobSiteContentStoreOptions = {
@@ -245,31 +255,48 @@ function createRevisionRecord(input: {
   return record;
 }
 
-function committedChain(records: RevisionRecord[], currentVersion: string): RevisionRecord[] {
+function committedChain(records: RevisionRecord[], currentVersion: string): CommittedChainResult {
   const byId = new Map(records.map((record) => [record.id, record]));
   const chain: RevisionRecord[] = [];
   const seenVersions = new Set<string>();
   let cursor = currentVersion;
-  while (!seenVersions.has(cursor)) {
+  while (true) {
+    if (seenVersions.has(cursor)) {
+      return { chainNewestFirst: chain, complete: false };
+    }
     seenVersions.add(cursor);
+    if (!/^content-/i.test(cursor)) {
+      return { chainNewestFirst: chain, complete: true };
+    }
     const expectedRevisionId = revisionIdFromTargetVersion(cursor);
-    if (expectedRevisionId === null) break;
+    if (expectedRevisionId === null) {
+      return { chainNewestFirst: chain, complete: false };
+    }
     const record = byId.get(expectedRevisionId);
-    if (record === undefined || record.targetVersion !== cursor) break;
+    if (record === undefined || record.targetVersion !== cursor) {
+      return { chainNewestFirst: chain, complete: false };
+    }
     chain.push(record);
     cursor = record.sourceVersion;
   }
-  return chain;
 }
 
 export function createBlobSiteContentStore(options: CreateBlobSiteContentStoreOptions = {}): SiteContentStore {
   const createStore = options.createStore ?? ((storeOptions) => getStore(storeOptions));
   const defaultContent = parseDocument(options.defaultContent ?? builtinDefaultSiteContent, "Default site content");
+  const defaultContentIsCompatible = isCompatibleStoredVersion(defaultContent.version);
   const now = options.now ?? (() => new Date());
   const randomUUID = options.randomUUID ?? (() => crypto.randomUUID());
   const store = createStore({ consistency: "strong", name: STORE_NAME });
 
+  function assertCompatibleDefaultContent(): void {
+    if (!defaultContentIsCompatible) {
+      throw invalidContent("Default site content is not valid site content.");
+    }
+  }
+
   async function readCurrent(): Promise<CurrentSnapshot> {
+    assertCompatibleDefaultContent();
     const result = await store.getWithMetadata(CURRENT_KEY, { type: "json" });
     if (result === null) {
       return { document: parseDocument(defaultContent, "Default site content"), etag: null, source: "default" };
@@ -301,19 +328,32 @@ export function createBlobSiteContentStore(options: CreateBlobSiteContentStoreOp
     return result.modified;
   }
 
-  async function readAllRevisionRecords(): Promise<RevisionRecord[]> {
+  async function readAllRevisionRecords(): Promise<RevisionReadResult> {
     const records: RevisionRecord[] = [];
+    let corruption = false;
     for await (const page of store.list({ paginate: true, prefix: REVISION_PREFIX })) {
       for (const blob of page.blobs) {
         const key = blob.key;
         if (typeof key !== "string" || !key.startsWith(REVISION_PREFIX)) continue;
+        const idFromKey = key.slice(REVISION_PREFIX.length);
+        if (parseRevisionId(idFromKey) === null) continue;
         const result = await store.getWithMetadata(key, { type: "json" });
-        if (result === null) continue;
+        if (result === null) {
+          corruption = true;
+          continue;
+        }
         const record = parseRevisionRecord(result.data, key);
-        if (record !== null) records.push(record);
+        if (record === null) {
+          corruption = true;
+          continue;
+        }
+        records.push(record);
       }
     }
-    return records.sort((left, right) => left.id.localeCompare(right.id));
+    return {
+      corruption,
+      records: records.sort((left, right) => left.id.localeCompare(right.id))
+    };
   }
 
   async function deleteRevisionBestEffort(id: string): Promise<void> {
@@ -328,7 +368,12 @@ export function createBlobSiteContentStore(options: CreateBlobSiteContentStoreOp
     }
   }
 
-  async function cleanupRevisionRecords(records: RevisionRecord[], chainNewestFirst: RevisionRecord[]): Promise<void> {
+  async function cleanupRevisionRecords(
+    records: RevisionRecord[],
+    chainNewestFirst: RevisionRecord[],
+    cleanupAllowed: boolean
+  ): Promise<void> {
+    if (!cleanupAllowed) return;
     const retainedIds = new Set(chainNewestFirst.slice(0, RETAINED_REVISIONS).map((record) => record.id));
     for (const record of records) {
       if (!retainedIds.has(record.id)) {
@@ -337,9 +382,18 @@ export function createBlobSiteContentStore(options: CreateBlobSiteContentStoreOp
     }
   }
 
-  async function readCommittedChain(currentVersion: string): Promise<{ allRecords: RevisionRecord[]; chainNewestFirst: RevisionRecord[] }> {
-    const allRecords = await readAllRevisionRecords();
-    return { allRecords, chainNewestFirst: committedChain(allRecords, currentVersion) };
+  async function readCommittedChain(currentVersion: string): Promise<{
+    allRecords: RevisionRecord[];
+    chainNewestFirst: RevisionRecord[];
+    cleanupAllowed: boolean;
+  }> {
+    const { corruption, records: allRecords } = await readAllRevisionRecords();
+    const { chainNewestFirst, complete } = committedChain(allRecords, currentVersion);
+    return {
+      allRecords,
+      chainNewestFirst,
+      cleanupAllowed: !corruption && complete
+    };
   }
 
   async function publish(input: {
@@ -384,17 +438,19 @@ export function createBlobSiteContentStore(options: CreateBlobSiteContentStoreOp
       }
       throw error;
     }
-    const { allRecords, chainNewestFirst } = await readCommittedChain(document.version);
-    await cleanupRevisionRecords(allRecords, chainNewestFirst);
+    const { allRecords, chainNewestFirst, cleanupAllowed } = await readCommittedChain(document.version);
+    await cleanupRevisionRecords(allRecords, chainNewestFirst, cleanupAllowed);
     return { document, revision: toRevisionSummary(revision) };
   }
 
   return {
     async getCurrent() {
+      assertCompatibleDefaultContent();
       return (await readCurrent()).document;
     },
 
     async save(update, actor) {
+      assertCompatibleDefaultContent();
       const parsedUpdate = parseUpdate(update);
       return publish({
         actor,
@@ -405,9 +461,10 @@ export function createBlobSiteContentStore(options: CreateBlobSiteContentStoreOp
     },
 
     async listRevisions() {
+      assertCompatibleDefaultContent();
       const current = await readCurrent();
-      const { allRecords, chainNewestFirst } = await readCommittedChain(current.document.version);
-      await cleanupRevisionRecords(allRecords, chainNewestFirst);
+      const { allRecords, chainNewestFirst, cleanupAllowed } = await readCommittedChain(current.document.version);
+      await cleanupRevisionRecords(allRecords, chainNewestFirst, cleanupAllowed);
       return chainNewestFirst
         .slice(0, RETAINED_REVISIONS)
         .sort((left, right) => left.id.localeCompare(right.id))
@@ -415,6 +472,7 @@ export function createBlobSiteContentStore(options: CreateBlobSiteContentStoreOp
     },
 
     async restore(revisionId, expectedVersion, actor) {
+      assertCompatibleDefaultContent();
       assertRevisionId(revisionId);
       if (!requiredText(expectedVersion, 200)) {
         throw contentConflict("Expected site content version is not valid.");
@@ -423,8 +481,8 @@ export function createBlobSiteContentStore(options: CreateBlobSiteContentStoreOp
       if (current.document.version !== expectedVersion) {
         throw contentConflict("Site content version does not match the current version.");
       }
-      const { allRecords, chainNewestFirst } = await readCommittedChain(current.document.version);
-      await cleanupRevisionRecords(allRecords, chainNewestFirst);
+      const { allRecords, chainNewestFirst, cleanupAllowed } = await readCommittedChain(current.document.version);
+      await cleanupRevisionRecords(allRecords, chainNewestFirst, cleanupAllowed);
       const revision = chainNewestFirst.find((candidate) => candidate.id === revisionId);
       if (revision === undefined) throw contentConflict("Site content revision does not exist.");
       const restored = await publish({

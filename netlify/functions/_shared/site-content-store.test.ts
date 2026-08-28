@@ -7,7 +7,8 @@ import type { PublicAdminUser } from "./admin-auth-service.ts";
 import {
   createBlobSiteContentStore,
   SiteContentStoreError,
-  type RevisionSummary
+  type RevisionSummary,
+  type SiteContentStore
 } from "./site-content-store.ts";
 
 type FakeBlob = {
@@ -596,24 +597,148 @@ for (const scenario of INVALID_HISTORICAL_CONTENT_VERSIONS) {
   });
 }
 
-test("save rejects a fallback snapshot with a non-canonical source content version before Blob writes", async () => {
-  const fake = createFakeBlobStore();
-  const clock = createClock();
-  const invalidDefault = withDocumentVersion(defaultSiteContent, INVALID_HISTORICAL_CONTENT_VERSIONS[0].version);
-  const store = createBlobSiteContentStore({
-    createStore: () => fake.store as never,
-    defaultContent: invalidDefault,
-    now: clock.now,
-    randomUUID: createUuidSequence()
-  });
-
-  await expectInvalidContent(() =>
-    store.save(
-      { expectedVersion: invalidDefault.version, sections: mutateHomeTitle(invalidDefault, "must not write") },
+const INVALID_FALLBACK_OPERATIONS: ReadonlyArray<{
+  label: string;
+  run: (
+    store: SiteContentStore,
+    fixture: ReturnType<typeof seedHistoricalSourceChain>
+  ) => Promise<unknown>;
+}> = [
+  { label: "getCurrent", run: (store) => store.getCurrent() },
+  { label: "listRevisions", run: (store) => store.listRevisions() },
+  {
+    label: "restore",
+    run: (store, fixture) => store.restore(fixture.history.id, fixture.currentDocument.version, ACTOR)
+  },
+  {
+    label: "save",
+    run: (store, fixture) => store.save(
+      {
+        expectedVersion: fixture.currentDocument.version,
+        sections: mutateHomeTitle(fixture.currentDocument, "must not write")
+      },
       ACTOR
     )
-  );
-  assert.deepEqual(fake.writes, []);
+  }
+];
+
+for (const scenario of INVALID_FALLBACK_OPERATIONS) {
+  test(`invalid fallback fails ${scenario.label} before Blob mutations even when legal history exists`, async () => {
+    const fake = createFakeBlobStore();
+    const fixture = seedHistoricalSourceChain(fake, defaultSiteContent.version);
+    const invalidDefault = withDocumentVersion(defaultSiteContent, INVALID_HISTORICAL_CONTENT_VERSIONS[0].version);
+    const store = createBlobSiteContentStore({
+      createStore: () => fake.store as never,
+      defaultContent: invalidDefault,
+      now: createClock().now,
+      randomUUID: createUuidSequence()
+    });
+
+    await expectInvalidContent(() => scenario.run(store, fixture));
+    assert.deepEqual(fake.writes, []);
+    assert.deepEqual(fake.deletes, []);
+  });
+}
+
+test("corrupt committed edge exposes only the proven prefix and disables all cleanup", async () => {
+  const { fake, store } = createHarness();
+  const oldId = "2026-08-26T08:00:00.000Z-00000000-0000-4000-8000-000000000701";
+  const corruptId = "2026-08-26T09:00:00.000Z-00000000-0000-4000-8000-000000000702";
+  const headId = "2026-08-26T10:00:00.000Z-00000000-0000-4000-8000-000000000703";
+  const oldTarget = withDocumentVersion(defaultSiteContent, targetVersionFor(oldId), "2026-08-26T08:00:00.000Z");
+  const corruptTarget = withDocumentVersion(defaultSiteContent, targetVersionFor(corruptId), "2026-08-26T09:00:00.000Z");
+  const currentDocument = withDocumentVersion(defaultSiteContent, targetVersionFor(headId), "2026-08-26T10:00:00.000Z");
+  const old = committedRevision({
+    createdAt: "2026-08-26T08:00:00.000Z",
+    id: oldId,
+    snapshot: defaultSiteContent,
+    targetVersion: oldTarget.version
+  });
+  const corrupt = {
+    ...committedRevision({
+      createdAt: "2026-08-26T09:00:00.000Z",
+      id: corruptId,
+      snapshot: oldTarget,
+      targetVersion: corruptTarget.version
+    }),
+    unexpected: true
+  };
+  const head = committedRevision({
+    createdAt: "2026-08-26T10:00:00.000Z",
+    id: headId,
+    snapshot: corruptTarget,
+    targetVersion: currentDocument.version
+  });
+  fake.put("current", currentDocument, "current-etag");
+  fake.put(`revisions/${old.id}`, old);
+  fake.put(`revisions/${corrupt.id}`, corrupt);
+  fake.put(`revisions/${head.id}`, head);
+
+  assert.deepEqual(await store.listRevisions(), [publicSummary(head)]);
+  await expectContentConflict(() => store.restore(old.id, currentDocument.version, ACTOR));
+  await expectContentConflict(() => store.restore(corrupt.id, currentDocument.version, ACTOR));
+  assert.deepEqual(fake.deletes, []);
+  assert.equal(fake.blobs.has(`revisions/${old.id}`), true);
+  assert.equal(fake.blobs.has(`revisions/${corrupt.id}`), true);
+  assert.equal(fake.blobs.has(`revisions/${head.id}`), true);
+});
+
+test("missing committed edge exposes only the proven prefix and disables all cleanup", async () => {
+  const { fake, store } = createHarness();
+  const oldId = "2026-08-26T08:00:00.000Z-00000000-0000-4000-8000-000000000711";
+  const missingId = "2026-08-26T09:00:00.000Z-00000000-0000-4000-8000-000000000712";
+  const headId = "2026-08-26T10:00:00.000Z-00000000-0000-4000-8000-000000000713";
+  const oldTarget = withDocumentVersion(defaultSiteContent, targetVersionFor(oldId), "2026-08-26T08:00:00.000Z");
+  const missingTarget = withDocumentVersion(defaultSiteContent, targetVersionFor(missingId), "2026-08-26T09:00:00.000Z");
+  const currentDocument = withDocumentVersion(defaultSiteContent, targetVersionFor(headId), "2026-08-26T10:00:00.000Z");
+  const old = committedRevision({
+    createdAt: "2026-08-26T08:00:00.000Z",
+    id: oldId,
+    snapshot: defaultSiteContent,
+    targetVersion: oldTarget.version
+  });
+  const head = committedRevision({
+    createdAt: "2026-08-26T10:00:00.000Z",
+    id: headId,
+    snapshot: missingTarget,
+    targetVersion: currentDocument.version
+  });
+  fake.put("current", currentDocument, "current-etag");
+  fake.put(`revisions/${old.id}`, old);
+  fake.put(`revisions/${head.id}`, head);
+
+  assert.deepEqual(await store.listRevisions(), [publicSummary(head)]);
+  await expectContentConflict(() => store.restore(old.id, currentDocument.version, ACTOR));
+  assert.deepEqual(fake.deletes, []);
+  assert.equal(fake.blobs.has(`revisions/${old.id}`), true);
+  assert.equal(fake.blobs.has(`revisions/${head.id}`), true);
+});
+
+test("complete committed chain still cleans parse-valid ghosts", async () => {
+  const { fake, store } = createHarness();
+  const headId = "2026-08-26T10:00:00.000Z-00000000-0000-4000-8000-000000000721";
+  const ghostId = "2026-08-26T11:00:00.000Z-00000000-0000-4000-8000-000000000722";
+  const currentDocument = withDocumentVersion(defaultSiteContent, targetVersionFor(headId), "2026-08-26T10:00:00.000Z");
+  const head = committedRevision({
+    createdAt: "2026-08-26T10:00:00.000Z",
+    id: headId,
+    snapshot: defaultSiteContent,
+    targetVersion: currentDocument.version
+  });
+  const ghost = committedRevision({
+    createdAt: "2026-08-26T11:00:00.000Z",
+    id: ghostId,
+    snapshot: currentDocument,
+    targetVersion: targetVersionFor(ghostId)
+  });
+  fake.put("current", currentDocument, "current-etag");
+  fake.put(`revisions/${head.id}`, head);
+  fake.put(`revisions/${ghost.id}`, ghost);
+
+  assert.deepEqual(await store.listRevisions(), [publicSummary(head)]);
+  assert.deepEqual(fake.deletes, [`revisions/${ghost.id}`]);
+  assert.equal(fake.blobs.has(`revisions/${head.id}`), true);
+  assert.equal(fake.blobs.has(`revisions/${ghost.id}`), false);
 });
 
 test("builtin and opaque non-content source versions remain compatible chain tails", async () => {
