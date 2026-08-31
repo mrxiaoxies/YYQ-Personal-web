@@ -63,6 +63,9 @@ const NETLIFY_ADMIN_SITE = "https://yyq-web.netlify.app";
 const INVALID_JSON = Symbol("invalid-json");
 const INVALID_RESPONSE_MESSAGE = "The administrator API returned an invalid response.";
 const REQUEST_FAILED_MESSAGE = "The administrator API request failed.";
+const INVALID_CONFIGURATION_MESSAGE = "The administrator site configuration is invalid.";
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const REVISION_ID_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)-([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
 
 export class AdminApiError extends Error {
   readonly code: string;
@@ -80,16 +83,43 @@ function configuredAdminSiteUrl() {
   return import.meta.env?.VITE_ADMIN_SITE_URL ?? "";
 }
 
-function normalizeAdminSiteUrl(value: string) {
-  return value.trim().replace(/\/+$/, "");
+function invalidConfiguration() {
+  return new AdminApiError("invalid_configuration", 0, INVALID_CONFIGURATION_MESSAGE);
+}
+
+function parseConfiguredAdminSiteUrl(value: string) {
+  const configuredUrl = value.trim();
+  let url: URL;
+
+  try {
+    if (!/^https?:\/\//i.test(configuredUrl) || configuredUrl.includes("?")) throw invalidConfiguration();
+    url = new URL(configuredUrl);
+  } catch {
+    throw invalidConfiguration();
+  }
+
+  if (
+    (url.protocol !== "http:" && url.protocol !== "https:") ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.pathname !== "/" ||
+    (url.hash !== "" && url.hash !== "#admin")
+  ) {
+    throw invalidConfiguration();
+  }
+
+  return {
+    managementUrl: url.hash === "#admin" ? `${url.origin}/#admin` : url.origin,
+    origin: url.origin
+  };
 }
 
 export function resolveAdminSiteUrl(
   location: Pick<AdminLocation, "hostname">,
   configuredUrl = configuredAdminSiteUrl()
 ): string {
-  const explicitUrl = normalizeAdminSiteUrl(configuredUrl);
-  if (explicitUrl) return explicitUrl;
+  const explicitUrl = configuredUrl.trim();
+  if (explicitUrl) return parseConfiguredAdminSiteUrl(explicitUrl).managementUrl;
   if (location.hostname.toLowerCase().endsWith(".github.io")) return NETLIFY_ADMIN_SITE;
   return "";
 }
@@ -98,11 +128,10 @@ export function isAdminHostedHere(
   location: AdminLocation,
   configuredUrl = configuredAdminSiteUrl()
 ): boolean {
-  const adminSiteUrl = resolveAdminSiteUrl(location, configuredUrl);
-  if (!adminSiteUrl) return true;
-
   try {
-    return new URL(adminSiteUrl).origin === location.origin;
+    const adminSiteUrl = resolveAdminSiteUrl(location, configuredUrl);
+    if (!adminSiteUrl) return true;
+    return new URL(adminSiteUrl).origin === new URL(location.origin).origin;
   } catch {
     return false;
   }
@@ -121,8 +150,9 @@ function browserLocation(): AdminLocation {
 
 function requestDependencies(options: AdminApiOptions) {
   const location = options.location ?? browserLocation();
+  const adminSiteUrl = resolveAdminSiteUrl(location, options.configuredUrl ?? configuredAdminSiteUrl());
   return {
-    baseUrl: resolveAdminSiteUrl(location, options.configuredUrl ?? configuredAdminSiteUrl()),
+    baseUrl: adminSiteUrl ? new URL(adminSiteUrl).origin : "",
     fetch: options.fetch ?? browserFetch()
   };
 }
@@ -138,13 +168,55 @@ function hasExactKeys(record: JsonRecord, keys: readonly string[]) {
 }
 
 function requiredString(value: unknown): string {
-  if (typeof value !== "string" || value.length === 0) throw invalidResponse();
+  if (typeof value !== "string" || value.trim().length === 0) throw invalidResponse();
   return value;
 }
 
-function nonNegativeNumber(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) throw invalidResponse();
+function nonNegativeInteger(value: unknown): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) throw invalidResponse();
   return value;
+}
+
+function positiveInteger(value: unknown): number {
+  const parsed = nonNegativeInteger(value);
+  if (parsed === 0) throw invalidResponse();
+  return parsed;
+}
+
+function canonicalIso(value: unknown): string {
+  const text = requiredString(value);
+  const timestamp = Date.parse(text);
+  if (!Number.isFinite(timestamp) || new Date(timestamp).toISOString() !== text) throw invalidResponse();
+  return text;
+}
+
+function normalizedAdminEmail(value: unknown): string {
+  const email = requiredString(value);
+  if (
+    email.length > 320 ||
+    email.trim() !== email ||
+    email.toLowerCase() !== email ||
+    !EMAIL_PATTERN.test(email)
+  ) {
+    throw invalidResponse();
+  }
+  return email;
+}
+
+function parseRevisionId(value: unknown, expectedTimestamp?: string): string {
+  const id = requiredString(value);
+  const match = REVISION_ID_PATTERN.exec(id);
+  if (match === null) throw invalidResponse();
+  const timestamp = canonicalIso(match[1]);
+  if (expectedTimestamp !== undefined && timestamp !== expectedTimestamp) throw invalidResponse();
+  return id;
+}
+
+function compatibleSourceVersion(value: unknown): string {
+  const version = requiredString(value);
+  if (version.length > 200) throw invalidResponse();
+  if (/^content-/i.test(version)) parseRevisionId(version.slice("content-".length));
+  return version;
 }
 
 function invalidResponse() {
@@ -201,7 +273,7 @@ function parsePublicAdminUser(value: unknown): PublicAdminUser {
   if (!isRecord(value) || !hasExactKeys(value, ["email", "id", "role"])) throw invalidResponse();
   if (value.role !== "admin") throw invalidResponse();
   return {
-    email: requiredString(value.email),
+    email: normalizedAdminEmail(value.email),
     id: requiredString(value.id),
     role: "admin"
   };
@@ -233,9 +305,9 @@ function parseRecentVisitor(value: unknown): RecentVisitor {
   return {
     ...(value.city === undefined ? {} : { city: value.city }),
     ...(value.country === undefined ? {} : { country: value.country }),
-    lastSeenAt: requiredString(value.lastSeenAt),
+    lastSeenAt: canonicalIso(value.lastSeenAt),
     page: requiredString(value.page),
-    pageViews: nonNegativeNumber(value.pageViews),
+    pageViews: nonNegativeInteger(value.pageViews),
     referrer: requiredString(value.referrer),
     sessionId: requiredString(value.sessionId),
     userAgent: requiredString(value.userAgent)
@@ -259,14 +331,14 @@ function parseAnalyticsStats(value: unknown): AnalyticsStats {
   if (value.lastVisitAt !== null && typeof value.lastVisitAt !== "string") throw invalidResponse();
 
   return {
-    generatedAt: requiredString(value.generatedAt),
-    lastVisitAt: value.lastVisitAt,
-    onlineCount: nonNegativeNumber(value.onlineCount),
-    onlineWindowSeconds: nonNegativeNumber(value.onlineWindowSeconds),
+    generatedAt: canonicalIso(value.generatedAt),
+    lastVisitAt: value.lastVisitAt === null ? null : canonicalIso(value.lastVisitAt),
+    onlineCount: nonNegativeInteger(value.onlineCount),
+    onlineWindowSeconds: positiveInteger(value.onlineWindowSeconds),
     recentVisitors: value.recentVisitors.map(parseRecentVisitor),
-    todayVisits: nonNegativeNumber(value.todayVisits),
-    totalVisitors: nonNegativeNumber(value.totalVisitors),
-    totalVisits: nonNegativeNumber(value.totalVisits)
+    todayVisits: nonNegativeInteger(value.todayVisits),
+    totalVisitors: nonNegativeInteger(value.totalVisitors),
+    totalVisits: nonNegativeInteger(value.totalVisits)
   };
 }
 
@@ -275,12 +347,13 @@ function parseRevisionSummary(value: unknown): RevisionSummary {
     throw invalidResponse();
   }
   if (value.reason !== "save" && value.reason !== "restore") throw invalidResponse();
+  const createdAt = canonicalIso(value.createdAt);
   return {
-    actorEmail: requiredString(value.actorEmail),
-    createdAt: requiredString(value.createdAt),
-    id: requiredString(value.id),
+    actorEmail: normalizedAdminEmail(value.actorEmail),
+    createdAt,
+    id: parseRevisionId(value.id, createdAt),
     reason: value.reason,
-    sourceVersion: requiredString(value.sourceVersion)
+    sourceVersion: compatibleSourceVersion(value.sourceVersion)
   };
 }
 
@@ -291,7 +364,9 @@ function parseRevisions(value: unknown): RevisionSummary[] {
 
 function parseDocument(value: unknown): SiteContentDocument {
   try {
-    return parseSiteContentDocument(value);
+    const document = parseSiteContentDocument(value);
+    canonicalIso(document.updatedAt);
+    return document;
   } catch {
     throw invalidResponse();
   }

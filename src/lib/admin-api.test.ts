@@ -21,6 +21,8 @@ import {
 const netlifyLocation = new URL("https://yyq-web.netlify.app/admin");
 const pagesLocation = new URL("https://mrxiaoxies.github.io/YYQ-Personal-web/#admin");
 const user = { email: "admin@example.com", id: "admin-1", role: "admin" as const };
+const canonicalIso = "2026-08-31T00:00:00.000Z";
+const canonicalRevisionId = `${canonicalIso}-12345678-1234-4123-8123-123456789abc`;
 
 type RecordedRequest = {
   init: RequestInit | undefined;
@@ -43,14 +45,14 @@ function options(fetchImpl: typeof fetch, location = netlifyLocation, configured
 function validDocument() {
   return {
     ...structuredClone(defaultSiteContent),
-    updatedAt: "2026-08-31T00:00:00.000Z",
+    updatedAt: canonicalIso,
     version: "content-current"
   };
 }
 
 function validStats() {
   return {
-    generatedAt: "2026-08-31T00:00:00.000Z",
+    generatedAt: canonicalIso,
     lastVisitAt: null,
     onlineCount: 1,
     onlineWindowSeconds: 90,
@@ -58,7 +60,7 @@ function validStats() {
       {
         city: "Shanghai",
         country: "China",
-        lastSeenAt: "2026-08-31T00:00:00.000Z",
+        lastSeenAt: canonicalIso,
         page: "/",
         pageViews: 2,
         referrer: "direct",
@@ -72,11 +74,35 @@ function validStats() {
   };
 }
 
+function validRevision(sourceVersion = "builtin-v1") {
+  return {
+    actorEmail: user.email,
+    createdAt: canonicalIso,
+    id: canonicalRevisionId,
+    reason: "save" as const,
+    sourceVersion
+  };
+}
+
+async function rejectsInvalidResponse(promise: Promise<unknown>, leakedText?: string) {
+  await assert.rejects(promise, (error: unknown) => {
+    assert.ok(error instanceof AdminApiError);
+    assert.equal(error.code, "invalid_response");
+    assert.equal(error.message, "The administrator API returned an invalid response.");
+    if (leakedText) assert.doesNotMatch(error.message, new RegExp(leakedText, "i"));
+    return true;
+  });
+}
+
 test("resolves Pages to Netlify, other hosts to same-origin, and normalizes an explicit site", () => {
   assert.equal(resolveAdminSiteUrl(pagesLocation), "https://yyq-web.netlify.app");
   assert.equal(resolveAdminSiteUrl(netlifyLocation), "");
   assert.equal(resolveAdminSiteUrl(new URL("http://127.0.0.1:5173/")), "");
-  assert.equal(resolveAdminSiteUrl(pagesLocation, " https://admin.example.com/// "), "https://admin.example.com");
+  assert.equal(
+    resolveAdminSiteUrl(pagesLocation, " https://admin.example.com#admin "),
+    "https://admin.example.com/#admin"
+  );
+  assert.equal(resolveAdminSiteUrl(pagesLocation, "https://admin.example.com/"), "https://admin.example.com");
 });
 
 test("detects whether the current origin can host the administrator session", () => {
@@ -84,6 +110,50 @@ test("detects whether the current origin can host the administrator session", ()
   assert.equal(isAdminHostedHere(netlifyLocation), true);
   assert.equal(isAdminHostedHere(netlifyLocation, "https://yyq-web.netlify.app/"), true);
   assert.equal(isAdminHostedHere(netlifyLocation, "https://admin.example.com"), false);
+});
+
+test("configured administrator links keep #admin while API requests use only the canonical origin", async () => {
+  const { fetchImpl, requests } = createFetch(Response.json({ user }));
+  const configuredUrl = "https://yyq-web.netlify.app/#admin";
+
+  assert.equal(resolveAdminSiteUrl(pagesLocation, configuredUrl), configuredUrl);
+  assert.equal(isAdminHostedHere(netlifyLocation, configuredUrl), true);
+  assert.deepEqual(await getCurrentAdmin(options(fetchImpl, pagesLocation, configuredUrl)), user);
+  assert.equal(requests[0].url, "https://yyq-web.netlify.app/api/admin/auth?action=me");
+});
+
+test("malicious and malformed administrator site configuration fails closed before fetch", async () => {
+  const invalidConfigurations = [
+    "ftp://yyq-web.netlify.app",
+    "javascript:alert(1)",
+    "https://admin:secret@yyq-web.netlify.app",
+    "https://yyq-web.netlify.app?mode=admin",
+    "https://yyq-web.netlify.app/admin",
+    "https://yyq-web.netlify.app/#other",
+    "https://yyq-web.netlify.app///",
+    "not a url"
+  ];
+
+  for (const configuredUrl of invalidConfigurations) {
+    assert.throws(
+      () => resolveAdminSiteUrl(pagesLocation, configuredUrl),
+      (error: unknown) => error instanceof AdminApiError && error.code === "invalid_configuration",
+      configuredUrl
+    );
+    assert.equal(isAdminHostedHere(pagesLocation, configuredUrl), false, configuredUrl);
+
+    let fetchCalls = 0;
+    const fetchImpl = async () => {
+      fetchCalls += 1;
+      return Response.json({ user });
+    };
+    await assert.rejects(
+      getCurrentAdmin(options(fetchImpl, pagesLocation, configuredUrl)),
+      (error: unknown) => error instanceof AdminApiError && error.code === "invalid_configuration",
+      configuredUrl
+    );
+    assert.equal(fetchCalls, 0, configuredUrl);
+  }
 });
 
 test("getCurrentAdmin uses the me endpoint and credentialed JSON request", async () => {
@@ -155,6 +225,57 @@ test("loads and strictly parses administrator analytics", async () => {
   );
 });
 
+test("analytics timestamps must be canonical ISO values", async () => {
+  const cases = [
+    ["generatedAt without milliseconds", (stats: ReturnType<typeof validStats>) => {
+      stats.generatedAt = "2026-08-31T00:00:00Z";
+    }],
+    ["invalid lastVisitAt", (stats: ReturnType<typeof validStats>) => {
+      stats.lastVisitAt = "not-a-date";
+    }],
+    ["normalized lastSeenAt", (stats: ReturnType<typeof validStats>) => {
+      stats.recentVisitors[0].lastSeenAt = "2026-08-31T08:00:00.000+08:00";
+    }]
+  ] as const;
+
+  for (const [name, mutate] of cases) {
+    const payload = validStats();
+    mutate(payload);
+    const { fetchImpl } = createFetch(Response.json(payload));
+    await rejectsInvalidResponse(loadAdminStats(options(fetchImpl)), name);
+  }
+});
+
+test("analytics counters require safe integers and a positive online window", async () => {
+  const cases = [
+    ["fractional online count", (stats: ReturnType<typeof validStats>) => { stats.onlineCount = 1.5; }],
+    ["zero online window", (stats: ReturnType<typeof validStats>) => { stats.onlineWindowSeconds = 0; }],
+    ["fractional online window", (stats: ReturnType<typeof validStats>) => {
+      stats.onlineWindowSeconds = 1.5;
+    }],
+    ["negative today visits", (stats: ReturnType<typeof validStats>) => { stats.todayVisits = -1; }],
+    ["unsafe total visitors", (stats: ReturnType<typeof validStats>) => {
+      stats.totalVisitors = Number.MAX_SAFE_INTEGER + 1;
+    }],
+    ["fractional page views", (stats: ReturnType<typeof validStats>) => {
+      stats.recentVisitors[0].pageViews = 1.25;
+    }]
+  ] as const;
+
+  for (const [name, mutate] of cases) {
+    const payload = validStats();
+    mutate(payload);
+    const { fetchImpl } = createFetch(Response.json(payload));
+    await rejectsInvalidResponse(loadAdminStats(options(fetchImpl)), name);
+  }
+
+  for (const literal of ["NaN", "Infinity", "-Infinity"]) {
+    const raw = JSON.stringify(validStats()).replace('"totalVisits":5', `"totalVisits":${literal}`);
+    const { fetchImpl } = createFetch(new Response(raw, { headers: { "Content-Type": "application/json" } }));
+    await rejectsInvalidResponse(loadAdminStats(options(fetchImpl)), literal);
+  }
+});
+
 test("save sends an exact update including expectedVersion and validates the document", async () => {
   const document = validDocument();
   const update = { expectedVersion: "content-old", sections: structuredClone(defaultSiteContent.sections) };
@@ -171,18 +292,62 @@ test("save sends an exact update including expectedVersion and validates the doc
   );
 });
 
+test("site content updatedAt must be canonical ISO", async () => {
+  const update = { expectedVersion: "content-old", sections: structuredClone(defaultSiteContent.sections) };
+  for (const updatedAt of ["2026-08-31T00:00:00Z", "not-a-date", "2026-02-30T00:00:00.000Z"]) {
+    const payload = { ...validDocument(), updatedAt };
+    const { fetchImpl } = createFetch(Response.json(payload));
+    await rejectsInvalidResponse(saveContent(update, options(fetchImpl)), updatedAt);
+  }
+});
+
 test("loads strict revision summaries", async () => {
-  const revisions = [{
-    actorEmail: user.email,
-    createdAt: "2026-08-31T00:00:00.000Z",
-    id: "2026-08-31T00:00:00.000Z-12345678-1234-4123-8123-123456789abc",
-    reason: "save" as const,
-    sourceVersion: "content-old"
-  }];
+  const revisions = [validRevision()];
   const { fetchImpl, requests } = createFetch(Response.json(revisions));
   assert.deepEqual(await loadRevisions(options(fetchImpl)), revisions);
   assert.equal(requests[0].url, "/api/admin/revisions");
   assert.equal(requests[0].init?.credentials, "include");
+});
+
+test("revision timestamps, ids, email, and content source versions match the backend contract", async () => {
+  const cases = [
+    ["non-canonical createdAt", { ...validRevision(), createdAt: "2026-08-31T00:00:00Z" }],
+    ["id timestamp mismatch", {
+      ...validRevision(),
+      id: "2026-08-30T00:00:00.000Z-12345678-1234-4123-8123-123456789abc"
+    }],
+    ["invalid UUID version", {
+      ...validRevision(),
+      id: `${canonicalIso}-12345678-1234-9123-8123-123456789abc`
+    }],
+    ["invalid UUID variant", {
+      ...validRevision(),
+      id: `${canonicalIso}-12345678-1234-4123-7123-123456789abc`
+    }],
+    ["uppercase actor email", { ...validRevision(), actorEmail: "Admin@example.com" }],
+    ["malformed actor email", { ...validRevision(), actorEmail: "admin.example.com" }],
+    ["empty source version", { ...validRevision(), sourceVersion: "" }],
+    ["malformed content source", { ...validRevision(), sourceVersion: "content-old" }],
+    ["normalized content timestamp", {
+      ...validRevision(),
+      sourceVersion: "content-2026-08-31T00:00:00Z-12345678-1234-4123-8123-123456789abc"
+    }]
+  ] as const;
+
+  for (const [name, revision] of cases) {
+    const { fetchImpl } = createFetch(Response.json([revision]));
+    await rejectsInvalidResponse(loadRevisions(options(fetchImpl)), name);
+  }
+});
+
+test("revision sourceVersion accepts canonical content versions and opaque builtin or legacy versions", async () => {
+  const revisions = [
+    validRevision("builtin-v1"),
+    { ...validRevision("legacy-import"), reason: "restore" as const },
+    validRevision(`content-${canonicalRevisionId}`)
+  ];
+  const { fetchImpl } = createFetch(Response.json(revisions));
+  assert.deepEqual(await loadRevisions(options(fetchImpl)), revisions);
 });
 
 test("restore uses the exact action URL and exact input body", async () => {
