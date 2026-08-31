@@ -14,6 +14,7 @@ import {
 
 const SITE_ORIGIN = "https://yyq-web.netlify.app";
 const PAGES_ORIGIN = "https://mrxiaoxies.github.io";
+const LOCAL_ADMIN_ORIGIN = "http://localhost:5173";
 const ADMIN_USER: PublicAdminUser = { email: "admin@example.com", id: "admin-user", role: "admin" };
 const REVISION: RevisionSummary = {
   actorEmail: ADMIN_USER.email,
@@ -157,6 +158,60 @@ test("public GET returns the exact GitHub Pages CORS origin without credentials"
   assert.equal(response.headers.get("Access-Control-Allow-Credentials"), null);
 });
 
+test("admin restore OPTIONS validates target POST and returns credentialed CORS", async () => {
+  const { handler } = createHandler();
+  const response = await handler(
+    request("/api/admin/content?action=restore", {
+      method: "OPTIONS",
+      origin: LOCAL_ADMIN_ORIGIN,
+      headers: {
+        "Access-Control-Request-Headers": "Content-Type",
+        "Access-Control-Request-Method": "POST"
+      }
+    }),
+    context()
+  );
+
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), LOCAL_ADMIN_ORIGIN);
+  assert.equal(response.headers.get("Access-Control-Allow-Credentials"), "true");
+  assert.equal(response.headers.get("Access-Control-Allow-Methods"), "PUT, POST, OPTIONS");
+  assert.equal(response.headers.get("Access-Control-Allow-Headers"), "Content-Type");
+});
+
+test("admin preflight rejects duplicate actions, unknown actions, and wrong target methods", async () => {
+  const { handler } = createHandler();
+  const preflight = (path: string, targetMethod: string) => handler(
+    request(path, {
+      method: "OPTIONS",
+      origin: LOCAL_ADMIN_ORIGIN,
+      headers: { "Access-Control-Request-Method": targetMethod }
+    }),
+    context()
+  );
+
+  await expectError(
+    await preflight("/api/admin/content?action=restore&action=restore", "POST"),
+    422,
+    "invalid_input"
+  );
+  await expectError(
+    await preflight("/api/admin/content?action=publish", "POST"),
+    404,
+    "not_found"
+  );
+  await expectError(
+    await preflight("/api/admin/content?action=restore", "PUT"),
+    422,
+    "invalid_input"
+  );
+  await expectError(
+    await preflight("/api/admin/content?action=restore", "DELETE"),
+    405,
+    "method_not_allowed"
+  );
+});
+
 test("admin content PUT without a valid session returns 401", async () => {
   const { handler, store } = createHandler({ authenticate: async () => null });
   const response = await handler(
@@ -208,6 +263,52 @@ test("stale expectedVersion maps content conflict to 409", async () => {
 
   const body = await expectError(response, 409, "content_conflict");
   assert.equal(JSON.stringify(body).includes("secret current version"), false);
+});
+
+test("store validation and conflict errors outside publish conflicts map to 503", async () => {
+  const cases: Array<{
+    error: SiteContentStoreError;
+    method: keyof SiteContentStore;
+    path: string;
+    requestInit: RequestInit;
+  }> = [
+    {
+      error: new SiteContentStoreError("content_conflict", "secret read conflict"),
+      method: "getCurrent",
+      path: "/api/site-content",
+      requestInit: { method: "GET" }
+    },
+    {
+      error: new SiteContentStoreError("invalid_content", "secret revisions corruption"),
+      method: "listRevisions",
+      path: "/api/admin/revisions",
+      requestInit: { method: "GET" }
+    },
+    {
+      error: new SiteContentStoreError("invalid_content", "secret save validation"),
+      method: "save",
+      path: "/api/admin/content",
+      requestInit: { method: "PUT", body: JSON.stringify(validUpdate()) }
+    },
+    {
+      error: new SiteContentStoreError("invalid_content", "secret restore validation"),
+      method: "restore",
+      path: "/api/admin/content?action=restore",
+      requestInit: {
+        method: "POST",
+        body: JSON.stringify({ revisionId: REVISION.id, expectedVersion: defaultSiteContent.version })
+      }
+    }
+  ];
+
+  for (const item of cases) {
+    const store = createStubStore();
+    store.failNext[item.method] = item.error;
+    const { handler } = createHandler({ store });
+    const response = await handler(request(item.path, item.requestInit), context());
+    const body = await expectError(response, 503, "service_unavailable");
+    assert.equal(JSON.stringify(body).includes(item.error.message), false);
+  }
 });
 
 test("admin revisions GET returns revision summaries for an authenticated session", async () => {
@@ -326,6 +427,58 @@ test("restore body and route methods are strict", async () => {
     "not_found"
   );
   assert.equal(store.calls.restore.length, 0);
+});
+
+test("restore rejects malformed revision ids before calling storage", async () => {
+  const { handler, store } = createHandler();
+  const response = await handler(
+    request("/api/admin/content?action=restore", {
+      method: "POST",
+      body: JSON.stringify({
+        expectedVersion: defaultSiteContent.version,
+        revisionId: "../not-a-revision"
+      })
+    }),
+    context()
+  );
+
+  await expectError(response, 422, "invalid_input");
+  assert.equal(store.calls.restore.length, 0);
+});
+
+test("each route rejects every query parameter outside its exact contract", async () => {
+  let authenticationCalls = 0;
+  const { handler, store } = createHandler({
+    authenticate: async () => {
+      authenticationCalls += 1;
+      return ADMIN_USER;
+    }
+  });
+  const cases: Array<{ path: string; requestInit: RequestInit }> = [
+    { path: "/api/site-content?preview=true", requestInit: { method: "GET" } },
+    { path: "/api/admin/revisions?limit=20", requestInit: { method: "GET" } },
+    {
+      path: "/api/admin/content?draft=true",
+      requestInit: { method: "PUT", body: JSON.stringify(validUpdate()) }
+    },
+    {
+      path: "/api/admin/content?action=restore&revision=extra",
+      requestInit: {
+        method: "POST",
+        body: JSON.stringify({ revisionId: REVISION.id, expectedVersion: defaultSiteContent.version })
+      }
+    }
+  ];
+
+  for (const item of cases) {
+    await expectError(
+      await handler(request(item.path, item.requestInit), context()),
+      422,
+      "invalid_input"
+    );
+  }
+  assert.equal(authenticationCalls, 0);
+  assert.deepEqual(store.calls, { getCurrent: [], listRevisions: [], restore: [], save: [] });
 });
 
 test("unexpected authentication and storage failures return generic 500 and 503 errors", async () => {

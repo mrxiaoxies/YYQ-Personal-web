@@ -35,6 +35,7 @@ const ALLOWED_HEADERS = "Content-Type";
 const PUBLIC_CONTENT_PATH = "/api/site-content";
 const ADMIN_CONTENT_PATH = "/api/admin/content";
 const ADMIN_REVISIONS_PATH = "/api/admin/revisions";
+const REVISION_ID_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)-[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const ERROR_DETAILS: Record<PublicErrorCode, { message: string; status: number }> = {
   body_too_large: { message: "The JSON request body is too large.", status: 413 },
@@ -158,6 +159,16 @@ function requiredString(value: unknown, maxLength = 200) {
   return value;
 }
 
+function requiredRevisionId(value: unknown) {
+  const revisionId = requiredString(value);
+  const match = REVISION_ID_PATTERN.exec(revisionId);
+  const timestamp = match?.[1];
+  if (!timestamp || !Number.isFinite(Date.parse(timestamp)) || new Date(timestamp).toISOString() !== timestamp) {
+    throw new SiteContentHttpError("invalid_input");
+  }
+  return revisionId;
+}
+
 async function readStrictJson(req: Request) {
   if (!hasJsonContentType(req)) throw new SiteContentHttpError("unsupported_media_type");
   try {
@@ -183,38 +194,46 @@ async function readRestoreInput(req: Request) {
   const body = strictObject(await readStrictJson(req), ["expectedVersion", "revisionId"]);
   return {
     expectedVersion: requiredString(body.expectedVersion),
-    revisionId: requiredString(body.revisionId)
+    revisionId: requiredRevisionId(body.revisionId)
   };
 }
 
-function requireNoAction(req: Request) {
-  if (new URL(req.url).searchParams.getAll("action").length !== 0) {
+function requireNoQuery(req: Request) {
+  if ([...new URL(req.url).searchParams].length !== 0) {
     throw new SiteContentHttpError("invalid_input");
   }
 }
 
 function requireRestoreAction(req: Request) {
-  const actions = new URL(req.url).searchParams.getAll("action");
-  if (actions.length !== 1 || actions[0] === "") throw new SiteContentHttpError("invalid_input");
-  if (actions[0] !== "restore") throw new SiteContentHttpError("not_found");
+  const entries = [...new URL(req.url).searchParams];
+  if (entries.length !== 1 || entries[0][0] !== "action" || entries[0][1] === "") {
+    throw new SiteContentHttpError("invalid_input");
+  }
+  if (entries[0][1] !== "restore") throw new SiteContentHttpError("not_found");
+}
+
+function contractMethod(req: Request) {
+  if (req.method !== "OPTIONS") return req.method;
+  const requestedMethod = req.headers.get("Access-Control-Request-Method");
+  if (!requestedMethod) throw new SiteContentHttpError("invalid_input");
+  return requestedMethod;
 }
 
 function validateRouteContract(req: Request, route: Route) {
+  const method = contractMethod(req);
   if (route === "public-content") {
-    requireNoAction(req);
-    if (req.method !== "GET" && req.method !== "OPTIONS") throw new SiteContentHttpError("method_not_allowed");
+    requireNoQuery(req);
+    if (method !== "GET") throw new SiteContentHttpError("method_not_allowed");
     return;
   }
   if (route === "admin-revisions") {
-    requireNoAction(req);
-    if (req.method !== "GET" && req.method !== "OPTIONS") throw new SiteContentHttpError("method_not_allowed");
+    requireNoQuery(req);
+    if (method !== "GET") throw new SiteContentHttpError("method_not_allowed");
     return;
   }
-  if (req.method === "POST") requireRestoreAction(req);
-  else requireNoAction(req);
-  if (req.method !== "PUT" && req.method !== "POST" && req.method !== "OPTIONS") {
-    throw new SiteContentHttpError("method_not_allowed");
-  }
+  if (method === "POST") return requireRestoreAction(req);
+  if (method === "PUT") return requireNoQuery(req);
+  throw new SiteContentHttpError("method_not_allowed");
 }
 
 async function authenticate(
@@ -231,13 +250,12 @@ async function authenticate(
   }
 }
 
-async function callStore<T>(operation: () => Promise<T>): Promise<T> {
+async function callStore<T>(kind: "publish" | "read", operation: () => Promise<T>): Promise<T> {
   try {
     return await operation();
   } catch (error) {
-    if (error instanceof SiteContentStoreError) {
-      if (error.code === "content_conflict") throw new SiteContentHttpError("content_conflict");
-      throw new SiteContentHttpError("invalid_input");
+    if (kind === "publish" && error instanceof SiteContentStoreError && error.code === "content_conflict") {
+      throw new SiteContentHttpError("content_conflict");
     }
     throw new SiteContentHttpError("service_unavailable");
   }
@@ -263,7 +281,7 @@ export function createSiteContentHandler({
         corsOrigin = resolved.origin;
         if (req.method === "OPTIONS") return optionsResponse(route, corsOrigin, false);
         const store = contentStore ?? getDefaultContentStore();
-        const document = await callStore(() => store.getCurrent());
+        const document = await callStore("read", () => store.getCurrent());
         return jsonResponse(document, 200, corsOrigin, false, id);
       }
 
@@ -276,16 +294,16 @@ export function createSiteContentHandler({
       const actor = await authenticate(req, authenticateRequest);
       const store = contentStore ?? getDefaultContentStore();
       if (route === "admin-revisions") {
-        const revisions = await callStore(() => store.listRevisions());
+        const revisions = await callStore("read", () => store.listRevisions());
         return jsonResponse(revisions, 200, corsOrigin, true, id);
       }
       if (req.method === "PUT") {
         const update = await readContentUpdate(req);
-        const result = await callStore(() => store.save(update, actor));
+        const result = await callStore("publish", () => store.save(update, actor));
         return jsonResponse(result.document, 200, corsOrigin, true, id);
       }
       const input = await readRestoreInput(req);
-      const document = await callStore(() => store.restore(input.revisionId, input.expectedVersion, actor));
+      const document = await callStore("publish", () => store.restore(input.revisionId, input.expectedVersion, actor));
       return jsonResponse(document, 200, corsOrigin, true, id);
     } catch (error) {
       const code = error instanceof SiteContentHttpError ? error.code : "internal_error";
