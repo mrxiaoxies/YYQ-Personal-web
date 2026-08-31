@@ -1,12 +1,10 @@
 import { getStore } from "@netlify/blobs";
+import type { Config, Context } from "@netlify/functions";
 
-declare const Netlify:
-  | {
-      env: {
-        get(name: string): string | undefined;
-      };
-    }
-  | undefined;
+import { authenticateAdminRequest } from "./admin-auth.ts";
+import type { PublicAdminUser } from "./_shared/admin-auth-service.ts";
+import { resolveAdminRequestOrigin } from "./_shared/admin-security.ts";
+import { baseHeaders, resolveCorsOrigin } from "./_shared/netlify-http.ts";
 
 type AnalyticsSummary = {
   totalVisits: number;
@@ -34,31 +32,134 @@ type SessionRecord = {
   visitorId: string;
 };
 
+export type AnalyticsStore = {
+  delete(key: string): Promise<void>;
+  get(key: string, options: { type: "json" }): Promise<unknown>;
+  list(options: { prefix: string }): Promise<{ blobs: Array<{ key: string }> }>;
+  setJSON(key: string, value: Record<string, unknown>): Promise<unknown>;
+};
+
+export type AnalyticsHandlerDependencies = {
+  authenticate?: (req: Request) => Promise<PublicAdminUser | null>;
+  getAnalyticsStore?: () => AnalyticsStore;
+};
+
+type AnalyticsHandler = (req: Request, context: Context) => Promise<Response>;
+type AnalyticsRoute = "stats" | "visit";
+type PublicErrorCode =
+  | "forbidden_origin"
+  | "internal_error"
+  | "invalid_input"
+  | "method_not_allowed"
+  | "not_found"
+  | "unauthorized";
+
 const STORE_NAME = "yyq-site-analytics";
 const SUMMARY_KEY = "summary";
 const ONLINE_WINDOW_MS = 90_000;
 const MAX_RECENT_VISITORS = 12;
+const VISIT_PATH = "/api/visit";
+const STATS_PATH = "/api/stats";
+const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
+const ALLOWED_HEADERS = "Content-Type";
 
-const jsonHeaders = {
-  "Access-Control-Allow-Headers": "Content-Type, x-admin-token",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Origin": "*",
-  "Cache-Control": "no-store",
-  "Content-Type": "application/json; charset=utf-8"
+const ERROR_DETAILS: Record<PublicErrorCode, { message: string; status: number }> = {
+  forbidden_origin: { message: "This origin is not allowed to access analytics.", status: 403 },
+  internal_error: { message: "The analytics request failed.", status: 500 },
+  invalid_input: { message: "Invalid analytics request.", status: 422 },
+  method_not_allowed: { message: "This method is not allowed for the analytics route.", status: 405 },
+  not_found: { message: "The analytics route was not found.", status: 404 },
+  unauthorized: { message: "Administrator authentication is required.", status: 401 }
 };
 
-function getAdminToken() {
-  return typeof Netlify !== "undefined" ? Netlify.env.get("VISITOR_ADMIN_TOKEN") ?? "" : "";
+class AnalyticsHttpError extends Error {
+  readonly code: PublicErrorCode;
+
+  constructor(code: PublicErrorCode) {
+    super(code);
+    this.name = "AnalyticsHttpError";
+    this.code = code;
+  }
 }
 
-function jsonResponse(body: unknown, init: ResponseInit = {}) {
-  return new Response(JSON.stringify(body), {
-    ...init,
-    headers: {
-      ...jsonHeaders,
-      ...(init.headers ?? {})
-    }
-  });
+let defaultAnalyticsStore: AnalyticsStore | undefined;
+
+function getDefaultAnalyticsStore() {
+  defaultAnalyticsStore ??= getStore({ consistency: "strong", name: STORE_NAME });
+  return defaultAnalyticsStore;
+}
+
+function corsHeaders(corsOrigin: string | undefined, credentialed: boolean) {
+  const headers = baseHeaders(corsOrigin);
+  if (credentialed && corsOrigin) headers.set("Access-Control-Allow-Credentials", "true");
+  return headers;
+}
+
+function jsonResponse(
+  body: unknown,
+  status: number,
+  corsOrigin: string | undefined,
+  credentialed: boolean,
+  requestId: string | undefined
+) {
+  const headers = corsHeaders(corsOrigin, credentialed);
+  headers.set("Content-Type", JSON_CONTENT_TYPE);
+  if (requestId) headers.set("X-Request-Id", requestId);
+  return new Response(JSON.stringify(body), { headers, status });
+}
+
+function errorResponse(
+  code: PublicErrorCode,
+  corsOrigin: string | undefined,
+  credentialed: boolean,
+  requestId: string | undefined,
+  allow?: string
+) {
+  const details = ERROR_DETAILS[code];
+  const response = jsonResponse(
+    { error: { code, message: details.message } },
+    details.status,
+    corsOrigin,
+    credentialed,
+    requestId
+  );
+  if (allow) response.headers.set("Allow", allow);
+  return response;
+}
+
+function routeFor(req: Request): AnalyticsRoute {
+  const pathname = new URL(req.url).pathname;
+  if (pathname === VISIT_PATH) return "visit";
+  if (pathname === STATS_PATH) return "stats";
+  throw new AnalyticsHttpError("not_found");
+}
+
+function requiredMethod(route: AnalyticsRoute) {
+  return route === "visit" ? "POST" : "GET";
+}
+
+function allowedMethods(route: AnalyticsRoute) {
+  return `${requiredMethod(route)}, OPTIONS`;
+}
+
+function contractMethod(req: Request) {
+  if (req.method !== "OPTIONS") return req.method;
+  const requestedMethod = req.headers.get("Access-Control-Request-Method");
+  if (!requestedMethod) throw new AnalyticsHttpError("invalid_input");
+  return requestedMethod;
+}
+
+function validateRouteContract(req: Request, route: AnalyticsRoute) {
+  if ([...new URL(req.url).searchParams].length !== 0) throw new AnalyticsHttpError("invalid_input");
+  if (contractMethod(req) !== requiredMethod(route)) throw new AnalyticsHttpError("method_not_allowed");
+}
+
+function optionsResponse(route: AnalyticsRoute, corsOrigin: string | undefined, credentialed: boolean) {
+  const headers = corsHeaders(corsOrigin, credentialed);
+  headers.set("Access-Control-Allow-Methods", allowedMethods(route));
+  headers.set("Access-Control-Allow-Headers", ALLOWED_HEADERS);
+  headers.set("Access-Control-Max-Age", "600");
+  return new Response(null, { headers, status: 204 });
 }
 
 function cleanString(value: unknown, fallback = "", maxLength = 220) {
@@ -91,7 +192,7 @@ function emptySummary(): AnalyticsSummary {
   };
 }
 
-async function readSummary(store: ReturnType<typeof getStore>) {
+async function readSummary(store: AnalyticsStore) {
   const summary = (await store.get(SUMMARY_KEY, { type: "json" })) as AnalyticsSummary | null;
   const normalized = summary ?? emptySummary();
   const dayKey = getShanghaiDayKey();
@@ -104,7 +205,7 @@ async function readSummary(store: ReturnType<typeof getStore>) {
   return normalized;
 }
 
-async function collectStats(store: ReturnType<typeof getStore>) {
+async function collectStats(store: AnalyticsStore) {
   const summary = await readSummary(store);
   const now = Date.now();
   const sessions = await store.list({ prefix: "sessions/" });
@@ -152,14 +253,13 @@ async function collectStats(store: ReturnType<typeof getStore>) {
   };
 }
 
-async function handleVisit(req: Request, context: { geo?: any }) {
-  const store = getStore({ consistency: "strong", name: STORE_NAME });
-  const body = await req.json().catch(() => ({}));
-  const eventType = body?.event === "heartbeat" ? "heartbeat" : "pageview";
+async function handleVisit(req: Request, context: Context, store: AnalyticsStore) {
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const eventType = body.event === "heartbeat" ? "heartbeat" : "pageview";
   const now = new Date();
   const nowIso = now.toISOString();
-  const visitorId = cleanId(body?.visitorId);
-  const sessionId = cleanId(body?.sessionId);
+  const visitorId = cleanId(body.visitorId);
+  const sessionId = cleanId(body.sessionId);
   const visitorKey = `visitors/${visitorId}`;
   const sessionKey = `sessions/${sessionId}`;
 
@@ -187,51 +287,83 @@ async function handleVisit(req: Request, context: { geo?: any }) {
     country: cleanString(context.geo?.country?.name ?? context.geo?.country?.code, "", 80),
     firstSeenAt: existingSession?.firstSeenAt ?? nowIso,
     lastSeenAt: nowIso,
-    page: cleanString(body?.page, "/", 180),
+    page: cleanString(body.page, "/", 180),
     pageViews: (existingSession?.pageViews ?? 0) + (eventType === "pageview" ? 1 : 0),
-    referrer: cleanString(body?.referrer, "direct", 220),
+    referrer: cleanString(body.referrer, "direct", 220),
     sessionId,
-    userAgent: cleanString(body?.userAgent, "unknown", 180),
+    userAgent: cleanString(body.userAgent, "unknown", 180),
     visitorId
   } satisfies SessionRecord);
 
   await store.setJSON(SUMMARY_KEY, summary);
-
-  return jsonResponse({ ok: true });
+  return { ok: true };
 }
 
-async function handleStats(req: Request) {
-  const adminToken = getAdminToken();
-  const submittedToken = req.headers.get("x-admin-token") ?? "";
-
-  if (adminToken && submittedToken !== adminToken) {
-    return jsonResponse({ error: "Unauthorized" }, { status: 401 });
+async function requireAdministrator(
+  req: Request,
+  authenticate: (req: Request) => Promise<PublicAdminUser | null>
+) {
+  try {
+    const user = await authenticate(req);
+    if (!user) throw new AnalyticsHttpError("unauthorized");
+    return user;
+  } catch (error) {
+    if (error instanceof AnalyticsHttpError) throw error;
+    throw new AnalyticsHttpError("internal_error");
   }
-
-  const store = getStore({ consistency: "strong", name: STORE_NAME });
-  const stats = await collectStats(store);
-  return jsonResponse(stats);
 }
 
-export default async (req: Request, context: { geo?: any }) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: jsonHeaders, status: 204 });
-  }
+export function createAnalyticsHandler({
+  authenticate = authenticateAdminRequest,
+  getAnalyticsStore = getDefaultAnalyticsStore
+}: AnalyticsHandlerDependencies = {}): AnalyticsHandler {
+  return async (req, context) => {
+    let corsOrigin: string | undefined;
+    let credentialed = false;
+    let route: AnalyticsRoute | undefined;
+    const requestId = typeof context.requestId === "string" ? context.requestId : undefined;
 
-  const pathname = new URL(req.url).pathname;
+    try {
+      route = routeFor(req);
+      validateRouteContract(req, route);
 
-  if (pathname === "/api/visit" && req.method === "POST") {
-    return handleVisit(req, context);
-  }
+      if (route === "visit") {
+        const resolved = resolveCorsOrigin(req, context);
+        if (!resolved.allowed) throw new AnalyticsHttpError("forbidden_origin");
+        corsOrigin = resolved.origin;
+        if (req.method === "OPTIONS") return optionsResponse(route, corsOrigin, false);
 
-  if (pathname === "/api/stats" && req.method === "GET") {
-    return handleStats(req);
-  }
+        const result = await handleVisit(req, context, getAnalyticsStore());
+        return jsonResponse(result, 200, corsOrigin, false, requestId);
+      }
 
-  return jsonResponse({ error: "Method not allowed" }, { status: 405 });
-};
+      const resolved = resolveAdminRequestOrigin(req, context);
+      if (!resolved.allowed) throw new AnalyticsHttpError("forbidden_origin");
+      corsOrigin = resolved.origin;
+      credentialed = true;
+      if (req.method === "OPTIONS") return optionsResponse(route, corsOrigin, true);
 
-export const config = {
+      await requireAdministrator(req, authenticate);
+      const stats = await collectStats(getAnalyticsStore());
+      return jsonResponse(stats, 200, corsOrigin, true, requestId);
+    } catch (error) {
+      const code = error instanceof AnalyticsHttpError ? error.code : "internal_error";
+      return errorResponse(
+        code,
+        corsOrigin,
+        credentialed,
+        requestId,
+        code === "method_not_allowed" && route ? allowedMethods(route) : undefined
+      );
+    }
+  };
+}
+
+const handler = createAnalyticsHandler();
+
+export default handler;
+
+export const config: Config = {
   method: ["GET", "POST", "OPTIONS"],
-  path: ["/api/visit", "/api/stats"]
+  path: [VISIT_PATH, STATS_PATH]
 };
