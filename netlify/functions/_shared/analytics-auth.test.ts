@@ -192,6 +192,30 @@ test("public visits remain available and store sanitized identifiers and bounded
   assert.equal((session?.referrer as string).length, 220);
 });
 
+test("public visits treat null and other non-object JSON as empty pageviews", async () => {
+  for (const body of [null, "text", 42, true, []]) {
+    const store = createFakeStore();
+    const handler = createAnalyticsHandler({
+      authenticate: async () => null,
+      getAnalyticsStore: () => store
+    });
+
+    const response = await handler(
+      request("/api/visit", { body, method: "POST", origin: PAGES_ORIGIN }),
+      context()
+    );
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ok: true });
+    const sessions = [...store.values.entries()].filter(([key]) => key.startsWith("sessions/"));
+    assert.equal(sessions.length, 1);
+    assert.equal(sessions[0][1].page, "/");
+    assert.equal(sessions[0][1].pageViews, 1);
+    assert.equal(sessions[0][1].referrer, "direct");
+    assert.equal(store.values.get("summary")?.totalVisits, 1);
+  }
+});
+
 test("visit CORS echoes exact Netlify, GitHub Pages, and configured public origins", async () => {
   const previous = process.env.KNOWLEDGE_ALLOWED_ORIGINS;
   process.env.KNOWLEDGE_ALLOWED_ORIGINS = "https://public-editor.example";
@@ -230,6 +254,28 @@ test("visit CORS rejects disallowed origins without a wildcard fallback", async 
   assert.equal(response.status, 403);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
   assert.notEqual(response.headers.get("Access-Control-Allow-Origin"), "*");
+});
+
+test("visit CORS rejects trailing-slash origin aliases before creating the store", async () => {
+  for (const origin of [`${PAGES_ORIGIN}/`, `${SITE_ORIGIN}/`]) {
+    let storeCreations = 0;
+    const handler = createAnalyticsHandler({
+      authenticate: async () => null,
+      getAnalyticsStore: () => {
+        storeCreations += 1;
+        return createFakeStore();
+      }
+    });
+
+    const response = await handler(
+      request("/api/visit", { body: {}, method: "POST", origin }),
+      context()
+    );
+
+    assert.equal(response.status, 403);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+    assert.equal(storeCreations, 0);
+  }
 });
 
 test("stats CORS is credentialed only for allowed administrator origins", async () => {

@@ -253,8 +253,14 @@ async function collectStats(store: AnalyticsStore) {
   };
 }
 
+function visitBody(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
 async function handleVisit(req: Request, context: Context, store: AnalyticsStore) {
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = visitBody(await req.json().catch(() => ({})));
   const eventType = body.event === "heartbeat" ? "heartbeat" : "pageview";
   const now = new Date();
   const nowIso = now.toISOString();
@@ -329,7 +335,10 @@ export function createAnalyticsHandler({
 
       if (route === "visit") {
         const resolved = resolveCorsOrigin(req, context);
-        if (!resolved.allowed) throw new AnalyticsHttpError("forbidden_origin");
+        const requestOrigin = req.headers.get("Origin");
+        if (!resolved.allowed || (requestOrigin !== null && resolved.origin !== requestOrigin)) {
+          throw new AnalyticsHttpError("forbidden_origin");
+        }
         corsOrigin = resolved.origin;
         if (req.method === "OPTIONS") return optionsResponse(route, corsOrigin, false);
 
