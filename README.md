@@ -1,10 +1,10 @@
 # YYQ 个人网站
 
-这是一个基于 Vite、React、TypeScript 和 Tailwind CSS 的个人网站项目，用于展示个人介绍、Codex 项目进度、测试能力、工作履历和联系方式。站内“问问 YYQ”知识助手会对自然问题执行关键词与本地向量混合检索，再把经过证据门控的公开经历交给 Netlify AI Gateway，生成有来源的回答。
+这是一个基于 Vite、React、TypeScript 和 Tailwind CSS 的个人网站项目，用于展示个人介绍、Codex 项目进度、测试能力、工作履历和联系方式。站内“问问 YYQ”知识助手会对自然问题执行关键词与本地向量混合检索，再把经过证据门控的公开经历交给 Netlify AI Gateway，生成有来源的回答。Netlify 站点还提供单管理员后台，可维护六个公开栏目；内容保存在 Netlify Blobs 中，保存后立即发布。
 
 ## 项目状态
 
-- 当前版本：`0.3.1`
+- 当前版本：`0.4.0`
 - GitHub 仓库：`https://github.com/mrxiaoxies/YYQ-Personal-web`
 - 版本记录：见 [CHANGELOG.md](./CHANGELOG.md)
 - 操作文档：见 [docs/OPERATIONS.md](./docs/OPERATIONS.md)
@@ -12,11 +12,11 @@
 
 ## 本版更新
 
-`0.3.1` 主要补充项目进度 RAG 更新计划，并清理本地产物提交边界：
+`0.4.0` 新增个人网站内容管理与安全的单管理员登录：
 
-- 新增个人网站项目进度 RAG 更新的设计说明与实施计划文档。
-- 记录后续项目进度数据结构、展示与验证路径，便于继续实现。
-- `.gitignore` 忽略本地 Codex 配置与生成输出目录，避免误提交个人配置和临时产物。
+- `#admin` 管理界面可编辑首页、Codex、项目展示、技能、履历和联系六个栏目，保存即发布。
+- 管理员账号、会话、动态内容和最近 20 个内容修订由 Netlify Blobs 保存，支持一次性初始化、密码恢复和历史恢复。
+- GitHub Pages 继续作为只读公开镜像，从 Netlify 读取公开内容，并把管理员入口引导到 Netlify。
 
 ## 技术栈
 
@@ -25,7 +25,7 @@
 - TypeScript
 - Tailwind CSS
 - lucide-react
-- Netlify Functions / AI Gateway
+- Netlify Functions / Blobs / AI Gateway
 - OpenAI SDK
 - Transformers.js / ONNX Runtime Web（WASM）
 - BGE Small 中文向量模型
@@ -39,7 +39,7 @@ npm run dev
 
 `npm install` 按 `package-lock.json` 安装固定版本的网页、Netlify CLI、Transformers.js 和 ONNX Runtime 依赖，服务于让不同电脑获得一致的构建与向量运行环境；它不会部署网站，也不会生成知识向量。
 
-`npm run dev` 只启动 Vite，服务于页面样式和交互预览，不会启动 RAG Function。
+`npm run dev` 只启动 Vite，服务于页面样式和交互预览，不会启动 Netlify Functions，因而不能验证真实 Blobs、管理员安全 Cookie、账号初始化、恢复或发布链路。管理员完整验收必须使用 Netlify Draft Deploy。
 
 首次安装、升级 Transformers/ONNX 依赖或重建 RAG 运行文件时执行：
 
@@ -79,13 +79,13 @@ npm test
 npm run dev:rag
 ```
 
-`npm run dev:rag` 由 Netlify CLI 同时启动网页与 Functions，服务于串联“浏览器 → 安全检查 → 本地向量混合检索 → AI Gateway → 有来源回答”。启动后另开终端执行：
+`npm run dev:rag` 由 Netlify CLI 同时启动网页与 Functions，服务于串联“浏览器 → 安全检查 → 本地向量混合检索 → AI Gateway → 有来源回答”。它可用于本地接口联调，但真实 Blobs 与跨部署 Cookie 行为仍以 Draft Deploy 为最终验收环境。启动后另开终端执行：
 
 ```powershell
 npm run verify:rag -- http://localhost:8888
 ```
 
-`npm run verify:rag -- URL` 会检查健康接口、工作经验概括与从业跨度、宽泛工具概括、未知 Selenium 拒答和跨项目 Codex 拒答，服务于验证指定地址的完整 RAG 链路；两次真实概括会产生 Gateway 调用。若本地 CLI 返回 `mismatched_client_ip`，先运行 `npm run evaluate:rag` 单独确认本地向量，再使用 Draft Deploy URL 执行同一验证，不能把 Gateway 的本地凭据/IP问题误判成本地向量失败。完整的“指令用途、成功标志和失败处理”见 [操作文档](./docs/OPERATIONS.md#134-本地与部署后验收)。
+`npm run verify:rag -- URL` 会检查健康接口、工作经验概括与从业跨度、宽泛工具概括、未知 Selenium 拒答和跨项目 Codex 拒答，服务于验证指定地址的完整 RAG 链路；两次真实概括会产生 Gateway 调用。若本地 CLI 返回 `mismatched_client_ip`，先运行 `npm run evaluate:rag` 单独确认本地向量，再使用 Draft Deploy URL 执行同一验证，不能把 Gateway 的本地凭据/IP问题误判成本地向量失败。完整的“指令用途、成功标志和失败处理”见 [操作文档](./docs/OPERATIONS.md#144-本地与部署后验收)。
 
 ## 本地向量检索原理
 
@@ -110,11 +110,12 @@ npm run preview
 .
 ├── .codex/skills/      # Codex 工作流 skill
 ├── knowledge/          # 经审核的公开知识库
-├── netlify/functions/  # 问答、统计等服务端接口
+├── netlify/functions/  # 管理认证、动态内容、问答与统计服务端接口
 ├── public/             # 静态资源
+├── shared/             # 前后端共享的站点内容 schema 与内置内容
 ├── src/                # React 源码
-│   ├── components/     # UI 组件
-│   ├── lib/            # 工具函数
+│   ├── components/     # 公开页面与 admin 管理组件
+│   ├── lib/            # 内容读取、管理员 API 与通用工具
 │   ├── App.tsx         # 主页面
 │   ├── index.css       # 全局样式
 │   └── main.tsx        # 应用入口
@@ -130,7 +131,7 @@ npm run preview
 ```powershell
 git status
 git add .
-git commit -m "chore: release v0.3.1"
+git commit -m "chore: release v0.4.0"
 git push
 ```
 
@@ -152,7 +153,9 @@ npm run build
 
 再将 `dist/` 内容提交并推送到 `gh-pages`。详细步骤见 [docs/OPERATIONS.md](./docs/OPERATIONS.md)。
 
-## Netlify 与知识助手
+GitHub Pages 只托管静态网页：公开页面会从 Netlify 获取已发布内容，读取失败时回退到仓库内置内容；打开 `#admin` 时不会请求管理员会话，而是显示前往 Netlify 管理界面的链接。
+
+## Netlify、管理后台与知识助手
 
 `netlify.toml` 已固定构建命令和发布目录：
 
@@ -170,6 +173,8 @@ npm run deploy:preview
 ```
 
 预览通过后才执行 `npx netlify deploy --prod` 更新正式站点。模型默认使用 `gpt-5.4-mini`，可通过服务端变量 `KNOWLEDGE_MODEL` 调整；前端在 GitHub Pages 运行时会自动连接 `yyq-web.netlify.app`，其他跨域前端可用 `VITE_KNOWLEDGE_API_BASE` 覆盖。
+
+管理员账号、会话、站点动态内容与修订记录保存在 Netlify Blobs，不写入 Git，也不会随静态构建进入 `dist/`。后台保存会立即更新公开内容；每次保存或恢复都会形成修订链，最多保留最近 20 个修订。初始化与恢复的安全令牌生命周期、Draft Deploy 验收步骤和变量边界见 [操作文档](./docs/OPERATIONS.md#13-管理界面与动态内容运维)。
 
 根据 Netlify AI Gateway 的注入行为，服务端优先读取总会注入且不会与自带 Provider 凭据冲突的 `NETLIFY_AI_GATEWAY_KEY` 与 `NETLIFY_AI_GATEWAY_BASE_URL`；只有这一对不可用时，才兼容成对的 `OPENAI_API_KEY` 与 `OPENAI_BASE_URL`。不要只配置半套变量，也不要把任何 Key、Token 或服务端 Base URL 放入 `VITE_` 变量，因为所有 `VITE_` 内容都会进入公开浏览器产物。
 

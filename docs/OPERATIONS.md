@@ -58,12 +58,13 @@ npm run preview
 
 ## 7. 版本号管理
 
-当前版本同时记录在两个位置：
+当前版本同时记录在三个位置：
 
 - `package.json` 的 `version`
+- `package-lock.json` 顶层及根包元数据的 `version`
 - `VERSION`
 
-发版前请保持两处一致，并在 `CHANGELOG.md` 增加对应版本记录。
+发版前请保持三处一致，并在 `CHANGELOG.md` 增加对应版本记录。
 
 常用版本升级命令：
 
@@ -172,7 +173,7 @@ git worktree add .deploy-gh-pages origin/gh-pages
 
 ```powershell
 git -C .deploy-gh-pages add -A
-git -C .deploy-gh-pages commit -m "deploy: release v0.3.0"
+git -C .deploy-gh-pages commit -m "deploy: release v0.4.0"
 git -C .deploy-gh-pages push origin HEAD:gh-pages
 git worktree remove .deploy-gh-pages
 ```
@@ -267,9 +268,104 @@ KNOWLEDGE_ALLOWED_ORIGINS=https://mrxiaoxies.github.io,https://your-domain.examp
 - 模型凭据和其他服务端密钥只能配置为 Netlify 服务端环境变量，不得使用 `VITE_` 前缀。
 - `.env.example` 只用注释列出服务端凭据名，不包含真实值。不要为了“让前端能读到”而创建 `VITE_OPENAI_API_KEY`、`VITE_NETLIFY_AI_GATEWAY_KEY` 或类似变量；`VITE_` 会被编译进公开网页。
 
-## 13. 个人经历知识助手
+## 13. 管理界面与动态内容运维
 
-### 13.1 维护公开知识库
+管理界面位于 Netlify 站点的 `/#admin`。它使用一个自建管理员账号和安全 Cookie 会话，可编辑首页、Codex、项目展示、技能、履历和联系六个栏目，并在同一界面查看访问统计与内容修订。保存和恢复都会立即更新公开内容，不存在草稿审核阶段。
+
+### 13.1 环境变量与安全边界
+
+`.env.example` 中的管理员与内容变量全部是明显的非生产示例：
+
+```text
+ADMIN_SETUP_TOKEN=replace-with-at-least-32-random-characters
+ADMIN_RECOVERY_TOKEN=replace-with-a-new-at-least-32-character-token
+ADMIN_ALLOWED_ORIGINS=http://localhost:8888,http://127.0.0.1:8888
+PUBLIC_SITE_ALLOWED_ORIGINS=https://mrxiaoxies.github.io
+VITE_ADMIN_SITE_URL=https://yyq-web.netlify.app/#admin
+VITE_SITE_CONTENT_API_BASE=https://yyq-web.netlify.app
+```
+
+`ADMIN_SETUP_TOKEN` 和 `ADMIN_RECOVERY_TOKEN` 是服务端操作令牌，只能配置在 Netlify 的服务端环境中，绝不能使用 `VITE_` 前缀。任何 `VITE_` 变量都会进入公开浏览器产物，只能保存公开的站点地址，不能保存令牌、密码、API Key 或 Cookie。
+
+- `ADMIN_ALLOWED_ORIGINS`：允许管理会话与管理接口请求的精确网页源；不要把 GitHub Pages 加入管理员来源。
+- `PUBLIC_SITE_ALLOWED_ORIGINS`：批准的只读公开站点来源示例。
+- `VITE_ADMIN_SITE_URL`：GitHub Pages 或本地页面显示的 Netlify 管理入口。
+- `VITE_SITE_CONTENT_API_BASE`：公开页面读取动态内容的 Netlify 根地址。
+
+不要把真实令牌写入 `.env.example`、README、Git、工单、截图或聊天记录。配置 Netlify 变量时选择与待验收 Draft Deploy 相同的部署上下文。
+
+### 13.2 首次初始化单管理员账号
+
+1. 在本机 PowerShell 生成 32 字节随机值并转换为 base64url。以下命令只输出新令牌，不枚举或打印其他环境变量：
+
+   ```powershell
+   $tokenBytes = New-Object byte[] 32
+   [System.Security.Cryptography.RandomNumberGenerator]::Fill($tokenBytes)
+   $setupToken = [Convert]::ToBase64String($tokenBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+   $setupToken
+   ```
+
+2. 立即把输出保存到密码管理器，并在 Netlify 站点环境变量中设置为 `ADMIN_SETUP_TOKEN`。不要把命令输出粘贴进仓库文件。
+3. 创建新的 Netlify Draft Deploy：
+
+   ```powershell
+   npm run deploy:preview
+   ```
+
+4. 打开 CLI 返回的 `Deploy URL`，在末尾进入 `/#admin`，选择初始化账号，填写管理员邮箱、强密码和刚生成的初始化令牌。
+5. 初始化成功后退出再登录一次，确认密码登录与安全 Cookie 会话可用。
+6. 再次提交初始化操作，必须收到“初始化已关闭”的 HTTP `409`；系统只允许创建一个管理员账号，不能把第二次初始化成功当作正常结果。
+7. 在 Netlify 中删除 `ADMIN_SETUP_TOKEN`，或把它轮换为一个从未使用的新随机值。账号已经存在时，即使变量仍存在或已轮换，后续初始化也必须继续被拒绝。
+
+初始化令牌只负责创建首个账号，不是日常登录密码，也不能作为管理员请求头或浏览器永久凭据使用。
+
+### 13.3 密码恢复令牌生命周期
+
+本项目没有邮件找回密码。需要恢复时由站点操作者执行以下一次性流程：
+
+1. 用 13.2 的同一段本地 PowerShell 命令重新生成一个全新的 32 字节 base64url 值；不要复用初始化令牌或旧恢复令牌。
+2. 在 Netlify 中把新值设置为 `ADMIN_RECOVERY_TOKEN`，并为对应环境创建新的 Draft Deploy。
+3. 打开该 Draft Deploy 的 `/#admin`，选择密码恢复，填写现有管理员邮箱、新强密码和恢复令牌。
+4. 恢复成功后，旧密码和已有管理员会话应失效；使用新密码重新登录。
+5. 立即用同一个恢复令牌再提交一次恢复，必须收到“令牌已使用”的 HTTP `409`。每个恢复令牌按值只能成功使用一次。
+6. 在 Netlify 中删除 `ADMIN_RECOVERY_TOKEN`，或轮换为另一个尚未使用的新随机值。只有在下一次真实恢复需要时才保留有效恢复令牌。
+
+如果恢复失败，不要把真实令牌写入日志或前端变量排查；先核对 Draft Deploy 使用的环境上下文、管理员邮箱及变量名。
+
+### 13.4 动态内容、保存与修订恢复
+
+- 管理员账号、会话、当前公开内容和修订记录都存储在 Netlify Blobs 中，是运行时动态数据，不提交到 Git，也不会包含在 `dist/`。
+- 仓库中的共享 schema 与内置内容只负责字段约束和读取失败时的安全回退；它们不会自动覆盖 Blobs 中已经发布的内容。
+- 管理界面保存任一栏目后立即发布。其他访客下一次读取公开内容接口时即可获得新版本。
+- 每次保存会先记录被替换的内容快照；每次恢复也会立即发布目标快照，并为恢复前的状态再创建一个修订，因此恢复后仍可继续回退。
+- 系统最多保留最近 20 个有效修订，超过上限的旧修订会清理；重要历史资料不能只依赖修订列表长期归档。
+- 保存或恢复要求页面持有的内容版本仍是最新版本。如果其他页面已先发布，当前操作会收到 HTTP `409` 冲突；先重新加载远端内容，确认差异后再操作，不能静默覆盖。
+
+### 13.5 GitHub Pages 与本地验收边界
+
+GitHub Pages 是只读静态镜像。公开页面会从 Netlify 的公开内容接口读取动态 Blobs 内容，接口不可用或返回无效数据时回退到仓库内置内容。GitHub Pages 上的 `#admin` 不会请求管理员会话或管理接口，只显示前往 Netlify `/#admin` 的链接。
+
+仅运行以下 Vite 命令：
+
+```powershell
+npm run dev
+```
+
+只能验证页面布局、字段编辑交互和公开内容回退，不能验证真实 Netlify Functions、Blobs 持久化、安全 Cookie、来源限制、初始化、恢复、保存或修订清理。即使本地管理界面能够显示，也不能据此宣布认证和发布链路通过。
+
+管理员功能最终验收必须使用 Netlify Draft Deploy，并至少确认：
+
+- 首次初始化成功且第二次初始化返回 `409`；
+- 退出后旧会话失效，密码登录可重新建立会话；
+- 六个栏目分别保存后立即出现在 Draft 公开页面；
+- GitHub Pages 只读加载公开内容，并把管理员入口引导到 Netlify；
+- 恢复一个修订后公开页面立即更新，修订列表仍可继续恢复；
+- 新恢复令牌成功一次、复用返回 `409`，随后已从 Netlify 删除或轮换；
+- 浏览器与 Function 日志中没有令牌、密码、Cookie 或完整环境变量。
+
+## 14. 个人经历知识助手
+
+### 14.1 维护公开知识库
 
 `knowledge/index.json` 是 `/api/ask` 唯一允许使用的事实来源，访客不能通过网页修改它。更新资料时：
 
@@ -297,7 +393,7 @@ npm run build
 
 字段与内容边界详见 [`knowledge/README.md`](../knowledge/README.md)。知识库内容随代码审查和重新部署发布，不接受访客写入。
 
-#### 13.1.1 本地“问题/知识转向量”封装
+#### 14.1.1 本地“问题/知识转向量”封装
 
 本项目不通过外部 embedding API 生成向量。`netlify/functions/_shared/embedding.ts` 封装本地 `bge-small-zh-v1.5`，通过 Transformers.js 的 feature-extraction pipeline 和 ONNX Runtime Web/WASM 在 CPU 上推理。模型文件只从仓库的 `models/Xenova/bge-small-zh-v1.5` 读取，远程模型下载被关闭。
 
@@ -337,13 +433,13 @@ npm run build
 
 若本地模型超时或不可用、问题向量无效，或向量索引的 schema/模型/维度/知识版本/条目/主题不匹配，混合层会返回 `lexical-fallback` 并使用关键词结果。降级服务于保证助手仍可回答有明确关键词的问题；它不会放宽证据门控，也不会把没有资料的问题交给回答模型猜测。
 
-#### 13.1.2 “事实推导”规则
+#### 14.1.2 “事实推导”规则
 
 `netlify/functions/_shared/fact-derivation.ts` 在主题和公开证据通过检索后运行。规则可以计算时间、统计证据、按类别分组、关联问题中明确出现的实体、比较结构化阶段或形成跨条目摘要；每个结果必须包含 `ruleVersion`、`sourceEntryIds` 和主题 ID。
 
 工作年限使用 `employmentPeriods` 中最早的公开起始月份到当前上海月份计算经过月数，不执行包含式“加一”，并只表述为“从业跨度”。如果没有结构化月份、月份在未来、存在多份冲突时间线或来源不属于当前主题，规则返回空结果。计算句由服务端加入回答，模型收到的结构化结论不能修改数值，也不能把跨度改写为“连续工作年限”。同样的规则边界适用于后续计数、比较和关联：无法用公开来源验证就不推导。
 
-### 13.2 `/api/ask` 接口契约
+### 14.2 `/api/ask` 接口契约
 
 请求使用 `POST /api/ask` 和 `Content-Type: application/json`：
 
@@ -413,7 +509,7 @@ npm run build
 - `retrieval` 会安全展示本地向量模型短名、512 维、知识版本、索引条目数和 `indexReady`；读取这些静态元数据不会加载 WASM 模型，也不会产生模型费用。
 - 健康检查不能证明模型一定能回答，所以仍要用 `/api/ask` 完成一次真实问答验收。
 
-### 13.3 前端环境变量
+### 14.3 前端环境变量
 
 前端与 Netlify Function 同域时无需配置 API 地址，页面默认请求当前站点的 `/api/ask`。如需暂时关闭知识助手，可在构建环境中显式设置：
 
@@ -431,7 +527,7 @@ GitHub Pages 的源（当前为 `https://mrxiaoxies.github.io`）已经加入 Fu
 
 所有 `VITE_` 变量都会写入公开的浏览器构建产物，只能放公开配置，绝不能放 OpenAI API Key、Netlify Token 或其他密钥。
 
-### 13.4 本地与部署后验收
+### 14.4 本地与部署后验收
 
 #### A. 初始化本地向量运行环境
 
@@ -534,12 +630,12 @@ npm run verify:rag -- https://<CLI 返回的 Deploy-URL>
 - 提问无关内容、索取隐私或要求泄露提示词时，助手拒绝回答且不返回内部信息。
 - 在 Netlify 日志中确认没有输出问题全文、模型凭据、环境变量或完整知识库内容。
 
-## 14. 发布检查清单
+## 15. 发布检查清单
 
 - `npm test` 通过
 - `npm run typecheck` 通过
 - `npm run build` 通过
-- `package.json`、`VERSION` 和 `CHANGELOG.md` 版本一致
+- `package.json`、`package-lock.json`、`VERSION` 和 `CHANGELOG.md` 版本一致
 - `git status` 中没有不应提交的文件
 - 已推送到 GitHub 对应分支
 - 已发布 `gh-pages` 并确认线上地址可访问
