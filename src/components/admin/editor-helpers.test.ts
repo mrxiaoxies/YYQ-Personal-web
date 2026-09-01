@@ -3,10 +3,13 @@ import test from "node:test";
 
 import { defaultSiteContent } from "../../../shared/default-site-content.ts";
 import {
+  acceptEditorVersion,
   buildContentUpdate,
   createEditorId,
+  decideIncomingDocument,
   deepClone,
   insertListItem,
+  isEditorOperationCurrent,
   moveListItem,
   removeListItem
 } from "./editor-helpers.ts";
@@ -27,6 +30,75 @@ test("buildContentUpdate replaces one section and preserves the document version
   assert.deepEqual(update.sections.codex, defaultSiteContent.sections.codex);
   assert.notEqual(update.sections, defaultSiteContent.sections);
   assert.equal(defaultSiteContent.sections.home.subtitle === "updated subtitle", false);
+});
+
+test("buildContentUpdate can bind a dirty draft to its original baseVersion", () => {
+  const home = deepClone(defaultSiteContent.sections.home);
+  home.subtitle = "dirty draft";
+
+  const update = buildContentUpdate(defaultSiteContent, "home", home, "content-original");
+
+  assert.equal(update.expectedVersion, "content-original");
+});
+
+test("a same-section external version preserves a dirty draft and its baseVersion", () => {
+  const decision = decideIncomingDocument({
+    baseVersion: "content-base",
+    currentSection: "home",
+    dirty: true,
+    incomingSection: "home",
+    incomingVersion: "content-external"
+  });
+
+  assert.deepEqual(decision, {
+    baseVersion: "content-base",
+    dirty: true,
+    externalConflict: true,
+    replaceDraft: false
+  });
+});
+
+test("same-section external content is only accepted through an explicit action", () => {
+  const decision = decideIncomingDocument({
+    baseVersion: "content-base",
+    currentSection: "home",
+    dirty: false,
+    incomingSection: "home",
+    incomingVersion: "content-external"
+  });
+
+  assert.equal(decision.replaceDraft, false);
+  assert.equal(decision.externalConflict, true);
+  assert.deepEqual(acceptEditorVersion("content-external"), {
+    baseVersion: "content-external",
+    dirty: false,
+    externalConflict: false
+  });
+});
+
+test("an explicit section switch accepts the incoming base and clears dirty state", () => {
+  assert.deepEqual(decideIncomingDocument({
+    baseVersion: "content-base",
+    currentSection: "home",
+    dirty: true,
+    incomingSection: "resume",
+    incomingVersion: "content-next"
+  }), {
+    baseVersion: "content-next",
+    dirty: false,
+    externalConflict: false,
+    replaceDraft: true
+  });
+});
+
+test("operation guards require a mounted editor, matching token, and current section", () => {
+  const token = { id: 4, section: "skills" as const };
+
+  assert.equal(isEditorOperationCurrent(token, token, "skills", true), true);
+  assert.equal(isEditorOperationCurrent(token, { id: 5, section: "skills" }, "skills", true), false);
+  assert.equal(isEditorOperationCurrent(token, token, "contact", true), false);
+  assert.equal(isEditorOperationCurrent(token, token, "skills", false), false);
+  assert.equal(isEditorOperationCurrent(token, null, "skills", true), false);
 });
 
 test("moveListItem moves in both directions and ignores boundaries", () => {

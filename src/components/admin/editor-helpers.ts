@@ -11,15 +11,83 @@ export function deepClone<T>(value: T): T {
 export function buildContentUpdate<K extends keyof SiteContentSections>(
   document: SiteContentDocument,
   section: K,
-  draft: SiteContentSections[K]
+  draft: SiteContentSections[K],
+  expectedVersion = document.version
 ): SiteContentUpdate {
   return {
-    expectedVersion: document.version,
+    expectedVersion,
     sections: {
       ...deepClone(document.sections),
       [section]: deepClone(draft)
     }
   };
+}
+
+export type EditorVersionState = {
+  baseVersion: string;
+  dirty: boolean;
+  externalConflict: boolean;
+};
+
+export type IncomingDocumentInput = {
+  baseVersion: string;
+  currentSection: keyof SiteContentSections;
+  dirty: boolean;
+  incomingSection: keyof SiteContentSections;
+  incomingVersion: string;
+};
+
+export type IncomingDocumentDecision = EditorVersionState & {
+  replaceDraft: boolean;
+};
+
+export function acceptEditorVersion(version: string): EditorVersionState {
+  return {
+    baseVersion: version,
+    dirty: false,
+    externalConflict: false
+  };
+}
+
+export function decideIncomingDocument(input: IncomingDocumentInput): IncomingDocumentDecision {
+  if (input.currentSection !== input.incomingSection) {
+    return {
+      ...acceptEditorVersion(input.incomingVersion),
+      replaceDraft: true
+    };
+  }
+  if (input.baseVersion === input.incomingVersion) {
+    return {
+      baseVersion: input.baseVersion,
+      dirty: input.dirty,
+      externalConflict: false,
+      replaceDraft: false
+    };
+  }
+  return {
+    baseVersion: input.baseVersion,
+    dirty: input.dirty,
+    externalConflict: true,
+    replaceDraft: false
+  };
+}
+
+export type EditorOperationToken = {
+  id: number;
+  section: keyof SiteContentSections;
+};
+
+export function isEditorOperationCurrent(
+  token: EditorOperationToken,
+  activeToken: EditorOperationToken | null,
+  currentSection: keyof SiteContentSections,
+  mounted: boolean
+): boolean {
+  return mounted &&
+    activeToken !== null &&
+    token.id === activeToken.id &&
+    token.section === activeToken.section &&
+    token.section === currentSection;
 }
 
 export function moveListItem<T>(items: readonly T[], index: number, offset: -1 | 1): T[] {
