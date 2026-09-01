@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
 
 import type {
-  SiteContentDocument,
-  SiteContentSections
+  SiteContentDocument
 } from "../../../shared/site-content-schema.ts";
 import { AdminApiError, saveContent } from "../../lib/admin-api.ts";
 import {
@@ -11,6 +10,8 @@ import {
   decideIncomingDocument,
   deepClone,
   isEditorOperationCurrent,
+  selectEditorRenderDraft,
+  type EditorDraftBinding,
   type EditorOperationToken
 } from "./editor-helpers.ts";
 import {
@@ -51,7 +52,10 @@ export function AdminSectionEditor({
 }: AdminSectionEditorProps): ReactElement {
   const [baseDocument, setBaseDocument] = useState(document);
   const [baseVersion, setBaseVersion] = useState(document.version);
-  const [draft, setDraft] = useState<SiteContentSections[AdminSectionKey]>(() => deepClone(document.sections[section]));
+  const [draftBinding, setDraftBinding] = useState<EditorDraftBinding>(() => ({
+    section,
+    value: deepClone(document.sections[section])
+  } as EditorDraftBinding));
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState<EditorStatus>("idle");
   const [publishedAt, setPublishedAt] = useState("");
@@ -93,7 +97,10 @@ export function AdminSectionEditor({
       setOperation(null);
       setBaseDocument(document);
       setBaseVersion(decision.baseVersion);
-      setDraft(deepClone(document.sections[section]));
+      setDraftBinding({
+        section,
+        value: deepClone(document.sections[section])
+      } as EditorDraftBinding);
       setDirty(decision.dirty);
       setStatus("idle");
       setPublishedAt("");
@@ -105,6 +112,14 @@ export function AdminSectionEditor({
       setStatus("conflict");
     }
   }, [document.version, section]);
+
+  const isBusy = operation !== null;
+  const renderDraft = selectEditorRenderDraft(
+    draftBinding,
+    section,
+    document,
+    isBusy
+  );
 
   function beginOperation(kind: EditorOperation): EditorOperationToken | null {
     if (activeOperationRef.current !== null) return null;
@@ -135,11 +150,18 @@ export function AdminSectionEditor({
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (
+      !renderDraft.bindingMatchesSection ||
+      renderDraft.disabled ||
+      draftBinding.section !== currentSectionRef.current
+    ) {
+      return;
+    }
     const token = beginOperation("save");
     if (token === null) return;
     setStatus("saving");
     try {
-      const update = buildContentUpdate(baseDocument, section, draft, baseVersion);
+      const update = buildContentUpdate(baseDocument, section, renderDraft.value, baseVersion);
       const savedDocument = await saveContent(update);
       if (!operationIsCurrent(token)) return;
       const accepted = acceptEditorVersion(savedDocument.version);
@@ -147,7 +169,10 @@ export function AdminSectionEditor({
       dirtyRef.current = accepted.dirty;
       setBaseDocument(savedDocument);
       setBaseVersion(accepted.baseVersion);
-      setDraft(deepClone(savedDocument.sections[section]));
+      setDraftBinding({
+        section: token.section,
+        value: deepClone(savedDocument.sections[token.section])
+      } as EditorDraftBinding);
       setDirty(accepted.dirty);
       setPublishedAt(savedDocument.updatedAt);
       setStatus("published");
@@ -180,7 +205,10 @@ export function AdminSectionEditor({
       dirtyRef.current = accepted.dirty;
       setBaseDocument(latest);
       setBaseVersion(accepted.baseVersion);
-      setDraft(deepClone(latest.sections[section]));
+      setDraftBinding({
+        section: token.section,
+        value: deepClone(latest.sections[token.section])
+      } as EditorDraftBinding);
       setDirty(accepted.dirty);
       setPublishedAt("");
       setStatus("idle");
@@ -196,8 +224,6 @@ export function AdminSectionEditor({
     }
   }
 
-  const isBusy = operation !== null;
-
   return (
     <section className="admin-section-editor" aria-labelledby="admin-section-editor-title">
       <header>
@@ -208,34 +234,41 @@ export function AdminSectionEditor({
         </div>
       </header>
 
-      {status === "conflict" && (
+      {renderDraft.bindingMatchesSection && status === "conflict" && (
         <div role="alert" className="admin-editor-message admin-editor-message--warning">
           <p>内容已在其他位置更新。你的当前草稿仍被保留。</p>
-          <button type="button" disabled={isBusy} onClick={() => void handleReloadLatest()}>
+          <button type="button" disabled={renderDraft.disabled} onClick={() => void handleReloadLatest()}>
             {operation === "reload" ? "正在载入…" : "重新载入最新内容"}
           </button>
         </div>
       )}
-      {status === "error" && (
+      {renderDraft.bindingMatchesSection && status === "error" && (
         <p role="alert" className="admin-editor-message admin-editor-message--error">
           操作未完成，请稍后重试。
         </p>
       )}
-      {status === "published" && (
+      {renderDraft.bindingMatchesSection && status === "published" && (
         <p role="status" className="admin-editor-message admin-editor-message--success">
           已发布{publishedAt ? " · " + new Date(publishedAt).toLocaleString("zh-CN") : ""}
         </p>
       )}
-      {dirty && status !== "conflict" && (
+      {renderDraft.bindingMatchesSection && dirty && status !== "conflict" && (
         <p role="status" className="admin-editor-message">有未发布更改</p>
       )}
 
       <form onSubmit={(event) => void handleSave(event)}>
-        <fieldset disabled={isBusy} className="admin-editor-operation-fieldset">
+        <fieldset disabled={renderDraft.disabled} className="admin-editor-operation-fieldset">
           <legend>栏目草稿内容</legend>
-          <TypedSectionEditor section={section} value={draft} onChange={(next) => {
+          <TypedSectionEditor section={section} value={renderDraft.value} onChange={(next) => {
+            if (
+              !renderDraft.bindingMatchesSection ||
+              renderDraft.disabled ||
+              draftBinding.section !== currentSectionRef.current
+            ) {
+              return;
+            }
             dirtyRef.current = true;
-            setDraft(next);
+            setDraftBinding({ section, value: next } as EditorDraftBinding);
             setDirty(true);
             if (status === "published" || status === "error") {
               setStatus("idle");
@@ -243,7 +276,7 @@ export function AdminSectionEditor({
             }
           }} />
           <div className="admin-editor-submit">
-            <button type="submit" disabled={isBusy}>
+            <button type="submit" disabled={renderDraft.disabled}>
               {operation === "save" ? "正在发布…" : "保存并发布"}
             </button>
           </div>

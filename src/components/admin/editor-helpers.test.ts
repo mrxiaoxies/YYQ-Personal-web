@@ -11,7 +11,8 @@ import {
   insertListItem,
   isEditorOperationCurrent,
   moveListItem,
-  removeListItem
+  removeListItem,
+  selectEditorRenderDraft
 } from "./editor-helpers.ts";
 
 test("deepClone isolates nested section changes", () => {
@@ -99,6 +100,51 @@ test("operation guards require a mounted editor, matching token, and current sec
   assert.equal(isEditorOperationCurrent(token, token, "contact", true), false);
   assert.equal(isEditorOperationCurrent(token, token, "skills", false), false);
   assert.equal(isEditorOperationCurrent(token, null, "skills", true), false);
+});
+
+test("Home to Codex transition renders a safe cloned Codex draft and disables editing", () => {
+  const homeDraft = deepClone(defaultSiteContent.sections.home);
+  homeDraft.subtitle = "unsaved home";
+
+  const selection = selectEditorRenderDraft(
+    { section: "home", value: homeDraft },
+    "codex",
+    defaultSiteContent,
+    false
+  );
+
+  assert.equal(selection.bindingMatchesSection, false);
+  assert.equal(selection.disabled, true);
+  assert.deepEqual(selection.value, defaultSiteContent.sections.codex);
+  assert.notEqual(selection.value, defaultSiteContent.sections.codex);
+  assert.equal("subtitle" in selection.value, false);
+});
+
+test("an active matching draft is rendered directly and stays editable when idle", () => {
+  const codexDraft = deepClone(defaultSiteContent.sections.codex);
+  const selection = selectEditorRenderDraft(
+    { section: "codex", value: codexDraft },
+    "codex",
+    defaultSiteContent,
+    false
+  );
+
+  assert.equal(selection.bindingMatchesSection, true);
+  assert.equal(selection.disabled, false);
+  assert.equal(selection.value, codexDraft);
+});
+
+test("a busy section switch remains disabled and never exposes the previous draft type", () => {
+  const selection = selectEditorRenderDraft(
+    { section: "home", value: deepClone(defaultSiteContent.sections.home) },
+    "codex",
+    defaultSiteContent,
+    true
+  );
+
+  assert.equal(selection.bindingMatchesSection, false);
+  assert.equal(selection.disabled, true);
+  assert.deepEqual(selection.value, defaultSiteContent.sections.codex);
 });
 
 test("moveListItem moves in both directions and ignores boundaries", () => {

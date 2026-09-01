@@ -8,6 +8,35 @@ export function deepClone<T>(value: T): T {
   return structuredClone(value);
 }
 
+export type EditorDraftBinding = {
+  [K in keyof SiteContentSections]: {
+    section: K;
+    value: SiteContentSections[K];
+  }
+}[keyof SiteContentSections];
+
+export type EditorRenderDraftSelection<K extends keyof SiteContentSections> = {
+  bindingMatchesSection: boolean;
+  disabled: boolean;
+  value: SiteContentSections[K];
+};
+
+export function selectEditorRenderDraft<K extends keyof SiteContentSections>(
+  binding: EditorDraftBinding,
+  section: K,
+  document: SiteContentDocument,
+  busy: boolean
+): EditorRenderDraftSelection<K> {
+  const bindingMatchesSection = binding.section === section;
+  return {
+    bindingMatchesSection,
+    disabled: busy || !bindingMatchesSection,
+    value: bindingMatchesSection
+      ? binding.value as SiteContentSections[K]
+      : deepClone(document.sections[section])
+  };
+}
+
 export function buildContentUpdate<K extends keyof SiteContentSections>(
   document: SiteContentDocument,
   section: K,
