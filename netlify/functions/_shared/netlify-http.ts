@@ -61,8 +61,12 @@ function normalizeOrigin(value: string | undefined) {
 }
 
 function configuredOrigins() {
-  return (getNetlifyEnv("KNOWLEDGE_ALLOWED_ORIGINS") ?? "")
-    .split(",")
+  return [
+    getNetlifyEnv("PUBLIC_SITE_ALLOWED_ORIGINS"),
+    getNetlifyEnv("KNOWLEDGE_ALLOWED_ORIGINS")
+  ]
+    .filter((value): value is string => Boolean(value))
+    .flatMap((value) => value.split(","))
     .map((value) => normalizeOrigin(value.trim()))
     .filter((value): value is string => Boolean(value));
 }

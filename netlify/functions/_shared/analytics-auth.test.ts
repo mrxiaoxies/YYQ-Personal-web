@@ -217,8 +217,8 @@ test("public visits treat null and other non-object JSON as empty pageviews", as
 });
 
 test("visit CORS echoes exact Netlify, GitHub Pages, and configured public origins", async () => {
-  const previous = process.env.KNOWLEDGE_ALLOWED_ORIGINS;
-  process.env.KNOWLEDGE_ALLOWED_ORIGINS = "https://public-editor.example";
+  const previous = process.env.PUBLIC_SITE_ALLOWED_ORIGINS;
+  process.env.PUBLIC_SITE_ALLOWED_ORIGINS = "https://public-editor.example";
   try {
     for (const origin of [SITE_ORIGIN, PAGES_ORIGIN, "https://public-editor.example"]) {
       const handler = createAnalyticsHandler({
@@ -235,8 +235,8 @@ test("visit CORS echoes exact Netlify, GitHub Pages, and configured public origi
       assert.notEqual(response.headers.get("Access-Control-Allow-Origin"), "*");
     }
   } finally {
-    if (previous === undefined) delete process.env.KNOWLEDGE_ALLOWED_ORIGINS;
-    else process.env.KNOWLEDGE_ALLOWED_ORIGINS = previous;
+    if (previous === undefined) delete process.env.PUBLIC_SITE_ALLOWED_ORIGINS;
+    else process.env.PUBLIC_SITE_ALLOWED_ORIGINS = previous;
   }
 });
 

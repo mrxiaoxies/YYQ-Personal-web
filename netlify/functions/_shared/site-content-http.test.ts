@@ -158,6 +158,25 @@ test("public GET returns the exact GitHub Pages CORS origin without credentials"
   assert.equal(response.headers.get("Access-Control-Allow-Credentials"), null);
 });
 
+test("public GET accepts an exact configured public site origin", async () => {
+  const previous = process.env.PUBLIC_SITE_ALLOWED_ORIGINS;
+  process.env.PUBLIC_SITE_ALLOWED_ORIGINS = "https://public-site.example";
+  try {
+    const { handler } = createHandler();
+    const response = await handler(
+      request("/api/site-content", { method: "GET", origin: "https://public-site.example" }),
+      context()
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://public-site.example");
+    assert.equal(response.headers.get("Access-Control-Allow-Credentials"), null);
+  } finally {
+    if (previous === undefined) delete process.env.PUBLIC_SITE_ALLOWED_ORIGINS;
+    else process.env.PUBLIC_SITE_ALLOWED_ORIGINS = previous;
+  }
+});
+
 test("admin restore OPTIONS validates target POST and returns credentialed CORS", async () => {
   const { handler } = createHandler();
   const response = await handler(
