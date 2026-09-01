@@ -61,6 +61,21 @@ function managementUrlFor(location: Location): string {
   }
 }
 
+export function AdminExternalEntry(): ReactElement {
+  const managementUrl = useMemo(() => managementUrlFor(window.location), []);
+
+  return (
+    <section className="admin-external-shell" aria-labelledby="admin-external-title">
+      <div className="admin-auth-card liquid-glass glass-panel">
+        <p className="admin-eyebrow">Administrator Console</p>
+        <h1 id="admin-external-title">管理界面托管在 Netlify</h1>
+        <p>GitHub Pages 仅展示公开网站，不会在此请求管理员会话或管理接口。</p>
+        <a className="admin-primary-link" href={managementUrl}>前往 Netlify 管理界面</a>
+      </div>
+    </section>
+  );
+}
+
 export function AdminApp({ content, onPublished }: AdminAppProps): ReactElement {
   const hostedHere = useMemo(() => isAdminHostedHere(window.location), []);
   const managementUrl = useMemo(() => managementUrlFor(window.location), []);
@@ -82,6 +97,9 @@ export function AdminApp({ content, onPublished }: AdminAppProps): ReactElement 
   const generationRef = useRef(0);
   const statsRequestRef = useRef(0);
   const revisionsRequestRef = useRef(0);
+  const restoreRequestRef = useRef(0);
+  const logoutRequestRef = useRef(0);
+  const logoutInFlightRef = useRef(false);
 
   const generationIsCurrent = useCallback((generation: number) => (
     isAdminGenerationCurrent(generation, generationRef.current, mountedRef.current)
@@ -157,6 +175,9 @@ export function AdminApp({ content, onPublished }: AdminAppProps): ReactElement 
       generationRef.current += 1;
       statsRequestRef.current += 1;
       revisionsRequestRef.current += 1;
+      restoreRequestRef.current += 1;
+      logoutRequestRef.current += 1;
+      logoutInFlightRef.current = false;
     };
   }, []);
 
@@ -279,17 +300,34 @@ export function AdminApp({ content, onPublished }: AdminAppProps): ReactElement 
   }
 
   async function handleLogout() {
-    generationRef.current += 1;
+    if (logoutInFlightRef.current) return;
+    logoutInFlightRef.current = true;
+    const request = logoutRequestRef.current + 1;
+    logoutRequestRef.current = request;
+    enterLogin();
+    setAuthBusy(true);
+    setServiceNotice("");
     try {
       await logoutAdmin();
+      if (!mountedRef.current || logoutRequestRef.current !== request) return;
+      setAuthStatus("已安全退出管理员账号。");
+    } catch (error) {
+      if (!mountedRef.current || logoutRequestRef.current !== request) return;
+      if (isUnauthorizedAdminError(error)) {
+        setAuthStatus("已安全退出管理员账号。");
+      } else {
+        setServiceNotice("本地管理界面已退出，但服务器会话未确认注销；刷新页面前请视为该会话仍可能有效。");
+      }
     } finally {
-      if (mountedRef.current) enterLogin("已安全退出管理员账号。");
+      if (logoutRequestRef.current === request) logoutInFlightRef.current = false;
+      if (mountedRef.current && logoutRequestRef.current === request) setAuthBusy(false);
     }
   }
 
   async function handleRestore(revision: RevisionSummary) {
     if (busyRevisionId !== null) return;
-    const generation = generationRef.current;
+    const request = restoreRequestRef.current + 1;
+    restoreRequestRef.current = request;
     setBusyRevisionId(revision.id);
     setRevisionsMessage("");
     try {
@@ -297,11 +335,11 @@ export function AdminApp({ content, onPublished }: AdminAppProps): ReactElement 
         expectedVersion: currentContent.version,
         revisionId: revision.id
       });
-      if (!generationIsCurrent(generation)) return;
+      if (!mountedRef.current || restoreRequestRef.current !== request) return;
       publishDocument(restored);
-      await refreshRevisions(generation);
+      await refreshRevisions(generationRef.current);
     } catch (error) {
-      if (!generationIsCurrent(generation)) return;
+      if (!mountedRef.current || restoreRequestRef.current !== request) return;
       if (isUnauthorizedAdminError(error)) {
         enterLogin("登录状态已失效，请重新登录。");
         return;
@@ -310,30 +348,39 @@ export function AdminApp({ content, onPublished }: AdminAppProps): ReactElement 
         ? "内容版本已更新，恢复操作未执行。请刷新数据后再试。"
         : adminErrorMessage(error));
     } finally {
-      if (generationIsCurrent(generation)) setBusyRevisionId(null);
+      if (mountedRef.current && restoreRequestRef.current === request) setBusyRevisionId(null);
     }
   }
 
-  async function reloadRemoteContent(): Promise<SiteContentDocument> {
+  const loadRemoteContent = useCallback(async (): Promise<SiteContentDocument> => {
     const result = await fetchSiteContent(window.fetch.bind(window), window.location);
     if (result.source !== "remote") {
       throw new AdminApiError("service_unavailable", 503, "The remote site content is unavailable.");
     }
-    publishDocument(result.document);
     return result.document;
+  }, []);
+
+  async function handleHomeRefresh() {
+    const generation = generationRef.current;
+    setRevisionsMessage("");
+    void refreshStats(generation);
+    void refreshRevisions(generation);
+    try {
+      const latest = await loadRemoteContent();
+      if (!generationIsCurrent(generation)) return;
+      publishDocument(latest);
+    } catch (error) {
+      if (!generationIsCurrent(generation)) return;
+      if (isUnauthorizedAdminError(error)) {
+        enterLogin("登录状态已失效，请重新登录。");
+        return;
+      }
+      setRevisionsMessage(adminErrorMessage(error));
+    }
   }
 
   if (!hostedHere) {
-    return (
-      <section className="admin-external-shell" aria-labelledby="admin-external-title">
-        <div className="admin-auth-card liquid-glass glass-panel">
-          <p className="admin-eyebrow">Administrator Console</p>
-          <h1 id="admin-external-title">管理界面托管在 Netlify</h1>
-          <p>GitHub Pages 仅展示公开网站，不会在此请求管理员会话或管理接口。</p>
-          <a className="admin-primary-link" href={managementUrl}>前往 Netlify 管理界面</a>
-        </div>
-      </section>
-    );
+    return <AdminExternalEntry />;
   }
 
   if (screen.name === "loading") {
@@ -384,7 +431,7 @@ export function AdminApp({ content, onPublished }: AdminAppProps): ReactElement 
           key={screen.section}
           onBack={() => setScreen({ name: "home" })}
           onPublished={publishDocument}
-          onReloadLatest={reloadRemoteContent}
+          onReloadLatest={loadRemoteContent}
           onUnauthorized={() => enterLogin("登录状态已失效，请重新登录。")}
           section={screen.section}
         />
@@ -407,13 +454,11 @@ export function AdminApp({ content, onPublished }: AdminAppProps): ReactElement 
         statsLoading={statsLoading}
         statsMessage={statsMessage}
         user={user}
-        onEdit={(section) => setScreen({ name: "edit", section })}
-        onLogout={() => void handleLogout()}
-        onRefresh={() => {
-          const generation = generationRef.current;
-          void refreshStats(generation);
-          void refreshRevisions(generation);
+        onEdit={(section) => {
+          if (busyRevisionId === null) setScreen({ name: "edit", section });
         }}
+        onLogout={() => void handleLogout()}
+        onRefresh={() => void handleHomeRefresh()}
         onRestore={(revision) => void handleRestore(revision)}
       />
     </div>

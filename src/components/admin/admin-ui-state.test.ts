@@ -9,6 +9,7 @@ import {
   isLocalViteLocation,
   isUnauthorizedAdminError,
   replacePublishedDocument,
+  shouldSendFinalVisitorHeartbeat,
   shouldPollAdminStats
 } from "./admin-ui-state.ts";
 
@@ -17,6 +18,12 @@ test("stats polling requires an authenticated visible home screen", () => {
   assert.equal(shouldPollAdminStats({ authenticated: false, screen: "home", visibility: "visible" }), false);
   assert.equal(shouldPollAdminStats({ authenticated: true, screen: "edit", visibility: "visible" }), false);
   assert.equal(shouldPollAdminStats({ authenticated: true, screen: "home", visibility: "hidden" }), false);
+});
+
+test("visitor analytics cleanup never labels an event as the administrator route", () => {
+  assert.equal(shouldSendFinalVisitorHeartbeat("#admin"), false);
+  assert.equal(shouldSendFinalVisitorHeartbeat("#projects"), true);
+  assert.equal(shouldSendFinalVisitorHeartbeat("#home"), true);
 });
 
 test("only HTTP 401 administrator errors are unauthorized", () => {

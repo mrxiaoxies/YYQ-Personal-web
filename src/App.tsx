@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { KnowledgeAssistant } from "@/components/KnowledgeAssistant";
-import { AdminApp } from "@/components/admin/AdminApp";
+import { AdminApp, AdminExternalEntry } from "@/components/admin/AdminApp";
 import { useSiteContent } from "@/hooks/use-site-content";
+import { isAdminHostedHere } from "@/lib/admin-api";
+import { shouldSendFinalVisitorHeartbeat } from "@/components/admin/admin-ui-state";
 import { Download, FileSpreadsheet, Menu, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
@@ -156,7 +158,7 @@ function useVisitorAnalytics(disabled: boolean) {
     return () => {
       window.clearInterval(heartbeatTimer);
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      postAnalyticsEvent("heartbeat", true);
+      if (shouldSendFinalVisitorHeartbeat(window.location.hash)) postAnalyticsEvent("heartbeat", true);
     };
   }, [disabled]);
 }
@@ -1049,17 +1051,17 @@ function getAppView(): AppView {
   return "site";
 }
 
-function App() {
-  const { document: siteContent, setDocument } = useSiteContent();
+type PublicAppView = Exclude<AppView, "admin">;
+
+function PublicSiteApp({ appView }: { appView: PublicAppView }) {
+  const { document: siteContent } = useSiteContent();
   const content = siteContent.sections;
   const [openCompany, setOpenCompany] = useState(0);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [appView, setAppView] = useState<AppView>(getAppView);
   const appShellRef = useRef<HTMLDivElement>(null);
   const contactReturnFocusRef = useRef<HTMLElement | null>(null);
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
-  const isAdminView = appView === "admin";
   const isProjectTimelineView = appView === "projects";
   const mobileNavItems = isProjectTimelineView ? [{ label: "返回项目板", href: "#codex" }] : navItems;
 
@@ -1082,19 +1084,11 @@ function App() {
     setContactModalOpen(false);
   }, []);
 
-  useVisitorAnalytics(isAdminView);
+  useVisitorAnalytics(false);
 
   useEffect(() => {
-    const updateView = () => {
-      setAppView(getAppView());
-      setMobileNavOpen(false);
-    };
-
-    window.addEventListener("hashchange", updateView);
-    updateView();
-
-    return () => window.removeEventListener("hashchange", updateView);
-  }, []);
+    setMobileNavOpen(false);
+  }, [appView]);
 
   useEffect(() => {
     const desktopMediaQuery = window.matchMedia("(min-width: 1024px)");
@@ -1259,9 +1253,7 @@ function App() {
           </>
         ) : null}
 
-      {isAdminView ? (
-        <AdminApp content={siteContent} onPublished={setDocument} />
-      ) : isProjectTimelineView ? (
+      {isProjectTimelineView ? (
         <ProjectTimelinePage projects={content.codex.projects} />
       ) : (
         <div className="site-flow relative z-10 flex flex-col">
@@ -1554,6 +1546,28 @@ function App() {
       ) : null}
     </main>
   );
+}
+
+function HostedAdminApp() {
+  const { document: siteContent, setDocument } = useSiteContent();
+  return <AdminApp content={siteContent} onPublished={setDocument} />;
+}
+
+function App() {
+  const [appView, setAppView] = useState<AppView>(getAppView);
+
+  useEffect(() => {
+    const updateView = () => setAppView(getAppView());
+    window.addEventListener("hashchange", updateView);
+    updateView();
+    return () => window.removeEventListener("hashchange", updateView);
+  }, []);
+
+  if (appView === "admin") {
+    return isAdminHostedHere(window.location) ? <HostedAdminApp /> : <AdminExternalEntry />;
+  }
+
+  return <PublicSiteApp appView={appView} />;
 }
 
 export default App;

@@ -2253,7 +2253,7 @@
   transition: border-color 180ms ease, transform 180ms ease;
 }
 
-.admin-section-card:hover {
+.admin-section-card:not(:disabled):hover {
   border-color: rgba(213, 255, 169, 0.38);
   transform: translateY(-2px);
 }

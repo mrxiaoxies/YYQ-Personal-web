@@ -13,6 +13,10 @@ export function shouldPollAdminStats(state: StatsPollingState): boolean {
   return state.authenticated && state.screen === "home" && state.visibility === "visible";
 }
 
+export function shouldSendFinalVisitorHeartbeat(hash: string): boolean {
+  return hash !== "#admin";
+}
+
 export function isUnauthorizedAdminError(error: unknown): error is AdminApiError {
   return error instanceof AdminApiError && error.status === 401;
 }

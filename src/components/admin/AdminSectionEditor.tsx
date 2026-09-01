@@ -212,6 +212,7 @@ export function AdminSectionEditor({
       setDirty(accepted.dirty);
       setPublishedAt("");
       setStatus("idle");
+      if (operationIsCurrent(token)) onPublished(latest);
     } catch (error) {
       if (!operationIsCurrent(token)) return;
       if (error instanceof AdminApiError && error.status === 401) {

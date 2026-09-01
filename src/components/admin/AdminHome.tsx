@@ -145,6 +145,7 @@ export function AdminHome({
           {(Object.keys(adminSectionLabels) as AdminSectionKey[]).map((section) => (
             <button
               className="admin-section-card liquid-glass glass-panel"
+              disabled={revisionBusy}
               key={section}
               onClick={() => onEdit(section)}
               type="button"
