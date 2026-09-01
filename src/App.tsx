@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { KnowledgeAssistant } from "@/components/KnowledgeAssistant";
+import { AdminApp } from "@/components/admin/AdminApp";
 import { useSiteContent } from "@/hooks/use-site-content";
 import { Download, FileSpreadsheet, Menu, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, FormEvent, ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { CodexProject, ContactSection } from "../shared/site-content-schema.ts";
 
 const navItems = [
@@ -83,33 +84,11 @@ type FallingSpriteSetKey = keyof typeof fallingSpriteSets;
 
 const summerFireflySprite = assetUrl("images/effects/summer-firefly.png");
 
-type RecentVisitor = {
-  city?: string;
-  country?: string;
-  lastSeenAt: string;
-  page: string;
-  pageViews: number;
-  referrer: string;
-  sessionId: string;
-  userAgent: string;
-};
-
-type AnalyticsStats = {
-  generatedAt: string;
-  lastVisitAt: string | null;
-  onlineCount: number;
-  onlineWindowSeconds: number;
-  recentVisitors: RecentVisitor[];
-  todayVisits: number;
-  totalVisitors: number;
-  totalVisits: number;
-};
-
 const analyticsVisitorIdKey = "yyq-analytics-visitor-id";
 const analyticsSessionIdKey = "yyq-analytics-session-id";
 const analyticsApiBase = (import.meta.env.VITE_ANALYTICS_API_BASE ?? "").replace(/\/$/, "");
 
-function analyticsEndpoint(path: "/api/stats" | "/api/visit") {
+function analyticsEndpoint(path: "/api/visit") {
   return `${analyticsApiBase}${path}`;
 }
 
@@ -768,163 +747,6 @@ function GlassPanel({ children, className = "" }: { children: ReactNode; classNa
   );
 }
 
-function formatMetric(value: number | undefined) {
-  return new Intl.NumberFormat("zh-CN").format(value ?? 0);
-}
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return "暂无记录";
-
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Shanghai"
-  }).format(new Date(value));
-}
-
-function AnalyticsDashboard() {
-  const [stats, setStats] = useState<AnalyticsStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [token, setToken] = useState(() => {
-    if (typeof window === "undefined") return "";
-    return window.sessionStorage.getItem("yyq-admin-token") ?? "";
-  });
-  const [tokenInput, setTokenInput] = useState(token);
-
-  const loadStats = useCallback(async (nextToken = token) => {
-    setIsLoading(true);
-    setError("");
-
-    try {
-      const response = await fetch(analyticsEndpoint("/api/stats"), {
-        headers: nextToken ? { "x-admin-token": nextToken } : {},
-        method: "GET"
-      });
-
-      if (response.status === 401) {
-        setStats(null);
-        setError("后台口令未填写或不正确。请填写 Netlify 环境变量 VISITOR_ADMIN_TOKEN 对应的口令。");
-        return;
-      }
-
-      if (!response.ok) throw new Error(`stats request failed: ${response.status}`);
-
-      const nextStats = (await response.json()) as AnalyticsStats;
-      setStats(nextStats);
-    } catch {
-      setStats(null);
-      setError("暂时连接不到统计接口。本地 Vite 预览不会启动 Netlify Functions，部署到 Netlify 后即可记录真实访问。");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    void loadStats();
-
-    const timer = window.setInterval(() => {
-      void loadStats();
-    }, 10_000);
-
-    return () => window.clearInterval(timer);
-  }, [loadStats]);
-
-  const saveToken = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const nextToken = tokenInput.trim();
-    setToken(nextToken);
-    window.sessionStorage.setItem("yyq-admin-token", nextToken);
-    void loadStats(nextToken);
-  };
-
-  const metrics = [
-    { detail: "每次页面打开会记录一次", label: "总访问次数", value: formatMetric(stats?.totalVisits) },
-    { detail: "按浏览器访客 ID 统计", label: "独立访客", value: formatMetric(stats?.totalVisitors) },
-    { detail: "按北京时间自然日统计", label: "今日访问", value: formatMetric(stats?.todayVisits) },
-    { detail: `${stats?.onlineWindowSeconds ?? 90} 秒内有心跳的访客`, label: "当前在线", value: formatMetric(stats?.onlineCount) }
-  ];
-
-  return (
-    <section className="relative z-10 min-h-screen px-6 pb-28 pt-32">
-      <SectionHeading
-        copy="实时查看网站访问次数、独立访客和当前在线人数。这个入口不会显示在导航里，访问 #admin 即可进入。"
-        copyClassName="text-base font-semibold text-white sm:text-lg"
-        eyebrow="Admin Console"
-        eyebrowClassName="text-base font-semibold text-white"
-        title="访问统计后台"
-      />
-
-      <div className="mx-auto max-w-6xl space-y-5">
-        <GlassPanel className="admin-toolbar p-5">
-          <div>
-            <p className="text-sm uppercase tracking-[0.24em] text-forest-muted-foreground">Live Status</p>
-            <p className="mt-2 text-sm text-foreground">
-              最新刷新：{isLoading ? "正在刷新" : formatDateTime(stats?.generatedAt)}
-            </p>
-          </div>
-
-          <form className="admin-token-form" onSubmit={saveToken}>
-            <input
-              aria-label="后台口令"
-              className="admin-token-input"
-              onChange={(event) => setTokenInput(event.target.value)}
-              placeholder="后台口令，可选"
-              type="password"
-              value={tokenInput}
-            />
-            <Button className="liquid-glass forest-control light-reactive rounded-full px-5 py-2 text-sm text-foreground" type="submit" variant="ghost">
-              刷新统计
-            </Button>
-          </form>
-        </GlassPanel>
-
-        {error ? <GlassPanel className="p-5 text-sm font-semibold text-white">{error}</GlassPanel> : null}
-
-        <div className="grid gap-5 md:grid-cols-4">
-          {metrics.map((metric) => (
-            <GlassPanel className="admin-metric-card p-5" key={metric.label}>
-              <p className="text-sm uppercase tracking-[0.2em] text-forest-muted-foreground">{metric.label}</p>
-              <p className="mt-4 text-4xl font-semibold text-foreground">{metric.value}</p>
-              <p className="mt-3 text-sm text-forest-muted-foreground">{metric.detail}</p>
-            </GlassPanel>
-          ))}
-        </div>
-
-        <GlassPanel className="p-5">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="text-sm uppercase tracking-[0.24em] text-forest-muted-foreground">Online Sessions</p>
-              <h3 className="mt-3 text-3xl font-semibold text-foreground">当前在线访客</h3>
-            </div>
-            <p className="text-sm text-forest-muted-foreground">最近访问：{formatDateTime(stats?.lastVisitAt)}</p>
-          </div>
-
-          <div className="admin-session-list mt-6">
-            {stats?.recentVisitors.length ? (
-              stats.recentVisitors.map((visitor) => (
-                <div className="admin-session-row" key={`${visitor.sessionId}-${visitor.lastSeenAt}`}>
-                  <div>
-                    <p className="font-semibold text-foreground">访客 {visitor.sessionId}</p>
-                    <p className="mt-1 text-sm text-forest-muted-foreground">{visitor.page || "/"}</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-foreground">{formatDateTime(visitor.lastSeenAt)}</p>
-                    <p className="mt-1 text-sm text-forest-muted-foreground">
-                      {visitor.country || "未知地区"}{visitor.city ? ` · ${visitor.city}` : ""} · {visitor.pageViews} 次页面访问
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="py-8 text-center text-sm font-semibold text-forest-muted-foreground">当前没有在线访客。</p>
-            )}
-          </div>
-        </GlassPanel>
-      </div>
-    </section>
-  );
-}
 
 function ProjectTimelinePage({ projects }: { projects: CodexProject[] }) {
   const statusLabels: Record<TimelineStatus, string> = {
@@ -1228,7 +1050,7 @@ function getAppView(): AppView {
 }
 
 function App() {
-  const { document: siteContent } = useSiteContent();
+  const { document: siteContent, setDocument } = useSiteContent();
   const content = siteContent.sections;
   const [openCompany, setOpenCompany] = useState(0);
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -1438,7 +1260,7 @@ function App() {
         ) : null}
 
       {isAdminView ? (
-        <AnalyticsDashboard />
+        <AdminApp content={siteContent} onPublished={setDocument} />
       ) : isProjectTimelineView ? (
         <ProjectTimelinePage projects={content.codex.projects} />
       ) : (
