@@ -3,8 +3,11 @@ import type { Config, Context } from "@netlify/functions";
 
 import { authenticateAdminRequest } from "./admin-auth.ts";
 import type { PublicAdminUser } from "./_shared/admin-auth-service.ts";
-import { resolveAdminRequestOrigin } from "./_shared/admin-security.ts";
-import { baseHeaders, resolveCorsOrigin } from "./_shared/netlify-http.ts";
+import {
+  resolveAdminRequestOrigin,
+  resolveOptionalAdminReadOrigin
+} from "./_shared/admin-security.ts";
+import { baseHeaders, resolvePublicSiteCorsOrigin } from "./_shared/netlify-http.ts";
 
 type AnalyticsSummary = {
   totalVisits: number;
@@ -334,7 +337,7 @@ export function createAnalyticsHandler({
       validateRouteContract(req, route);
 
       if (route === "visit") {
-        const resolved = resolveCorsOrigin(req, context);
+        const resolved = resolvePublicSiteCorsOrigin(req, context);
         const requestOrigin = req.headers.get("Origin");
         if (!resolved.allowed || (requestOrigin !== null && resolved.origin !== requestOrigin)) {
           throw new AnalyticsHttpError("forbidden_origin");
@@ -346,7 +349,9 @@ export function createAnalyticsHandler({
         return jsonResponse(result, 200, corsOrigin, false, requestId);
       }
 
-      const resolved = resolveAdminRequestOrigin(req, context);
+      const resolved = req.method === "GET"
+        ? resolveOptionalAdminReadOrigin(req, context)
+        : resolveAdminRequestOrigin(req, context);
       if (!resolved.allowed) throw new AnalyticsHttpError("forbidden_origin");
       corsOrigin = resolved.origin;
       credentialed = true;

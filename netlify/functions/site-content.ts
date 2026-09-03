@@ -3,8 +3,12 @@ import type { Config, Context } from "@netlify/functions";
 import { parseSiteContentUpdate } from "../../shared/site-content-schema.ts";
 import { authenticateAdminRequest } from "./admin-auth.ts";
 import type { PublicAdminUser } from "./_shared/admin-auth-service.ts";
-import { readBoundedJson, resolveAdminRequestOrigin } from "./_shared/admin-security.ts";
-import { baseHeaders, resolveCorsOrigin } from "./_shared/netlify-http.ts";
+import {
+  readBoundedJson,
+  resolveAdminRequestOrigin,
+  resolveOptionalAdminReadOrigin
+} from "./_shared/admin-security.ts";
+import { baseHeaders, resolvePublicSiteCorsOrigin } from "./_shared/netlify-http.ts";
 import {
   createBlobSiteContentStore,
   SiteContentStoreError,
@@ -276,7 +280,7 @@ export function createSiteContentHandler({
       validateRouteContract(req, route);
 
       if (route === "public-content") {
-        const resolved = resolveCorsOrigin(req, context);
+        const resolved = resolvePublicSiteCorsOrigin(req, context);
         if (!resolved.allowed) throw new SiteContentHttpError("forbidden_origin");
         corsOrigin = resolved.origin;
         if (req.method === "OPTIONS") return optionsResponse(route, corsOrigin, false);
@@ -285,7 +289,9 @@ export function createSiteContentHandler({
         return jsonResponse(document, 200, corsOrigin, false, id);
       }
 
-      const resolved = resolveAdminRequestOrigin(req, context);
+      const resolved = route === "admin-revisions" && req.method === "GET"
+        ? resolveOptionalAdminReadOrigin(req, context)
+        : resolveAdminRequestOrigin(req, context);
       if (!resolved.allowed) throw new SiteContentHttpError("forbidden_origin");
       corsOrigin = resolved.origin;
       credentialed = true;

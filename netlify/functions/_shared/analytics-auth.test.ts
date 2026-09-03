@@ -158,6 +158,19 @@ test("authenticated stats preserve the existing analytics response", async () =>
   ]);
 });
 
+test("authenticated same-origin stats GET succeeds when the browser omits Origin", async () => {
+  const handler = createAnalyticsHandler({
+    authenticate: async () => adminUser(),
+    getAnalyticsStore: () => createFakeStore()
+  });
+
+  const response = await handler(request("/api/stats", { origin: null }), context());
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+  assert.equal(response.headers.get("Access-Control-Allow-Credentials"), null);
+});
+
 test("public visits remain available and store sanitized identifiers and bounded fields", async () => {
   const store = createFakeStore();
   const handler = createAnalyticsHandler({
@@ -256,6 +269,39 @@ test("visit CORS rejects disallowed origins without a wildcard fallback", async 
   assert.notEqual(response.headers.get("Access-Control-Allow-Origin"), "*");
 });
 
+test("visit CORS rejects a knowledge-only origin and accepts a public-site origin", async () => {
+  const previousKnowledge = process.env.KNOWLEDGE_ALLOWED_ORIGINS;
+  const previousPublic = process.env.PUBLIC_SITE_ALLOWED_ORIGINS;
+  process.env.KNOWLEDGE_ALLOWED_ORIGINS = "https://knowledge-only.example";
+  process.env.PUBLIC_SITE_ALLOWED_ORIGINS = "https://public-site.example";
+
+  try {
+    const handler = createAnalyticsHandler({
+      authenticate: async () => null,
+      getAnalyticsStore: () => createFakeStore()
+    });
+    const knowledgeOnly = await handler(
+      request("/api/visit", { body: {}, method: "POST", origin: "https://knowledge-only.example" }),
+      context()
+    );
+    const publicSite = await handler(
+      request("/api/visit", { body: {}, method: "POST", origin: "https://public-site.example" }),
+      context()
+    );
+
+    assert.equal(knowledgeOnly.status, 403);
+    assert.equal(knowledgeOnly.headers.get("Access-Control-Allow-Origin"), null);
+    assert.equal(publicSite.status, 200);
+    assert.equal(publicSite.headers.get("Access-Control-Allow-Origin"), "https://public-site.example");
+    assert.equal(publicSite.headers.get("Access-Control-Allow-Credentials"), null);
+  } finally {
+    if (previousKnowledge === undefined) delete process.env.KNOWLEDGE_ALLOWED_ORIGINS;
+    else process.env.KNOWLEDGE_ALLOWED_ORIGINS = previousKnowledge;
+    if (previousPublic === undefined) delete process.env.PUBLIC_SITE_ALLOWED_ORIGINS;
+    else process.env.PUBLIC_SITE_ALLOWED_ORIGINS = previousPublic;
+  }
+});
+
 test("visit CORS rejects trailing-slash origin aliases before creating the store", async () => {
   for (const origin of [`${PAGES_ORIGIN}/`, `${SITE_ORIGIN}/`]) {
     let storeCreations = 0;
@@ -334,6 +380,39 @@ test("analytics preflight keeps public and administrator CORS contracts separate
   assert.equal(stats.headers.get("Access-Control-Allow-Methods"), "GET, OPTIONS");
   assert.equal(stats.headers.get("Access-Control-Allow-Headers"), "Content-Type");
   assert.equal(stats.headers.get("Access-Control-Allow-Credentials"), "true");
+});
+
+test("administrator stats OPTIONS rejects missing and attacker origins before side effects", async () => {
+  let authenticationCalls = 0;
+  let storeCreations = 0;
+  const handler = createAnalyticsHandler({
+    authenticate: async () => {
+      authenticationCalls += 1;
+      return adminUser();
+    },
+    getAnalyticsStore: () => {
+      storeCreations += 1;
+      return createFakeStore();
+    }
+  });
+
+  for (const origin of [null, DISALLOWED_ORIGIN]) {
+    const response = await handler(
+      request("/api/stats", {
+        headers: { "Access-Control-Request-Method": "GET" },
+        method: "OPTIONS",
+        origin
+      }),
+      context()
+    );
+
+    assert.equal(response.status, 403);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+    assert.equal(response.headers.get("Access-Control-Allow-Credentials"), null);
+  }
+
+  assert.equal(authenticationCalls, 0);
+  assert.equal(storeCreations, 0);
 });
 
 test("authentication failures return a generic error without creating the store", async () => {

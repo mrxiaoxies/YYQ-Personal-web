@@ -60,18 +60,14 @@ function normalizeOrigin(value: string | undefined) {
   }
 }
 
-function configuredOrigins() {
-  return [
-    getNetlifyEnv("PUBLIC_SITE_ALLOWED_ORIGINS"),
-    getNetlifyEnv("KNOWLEDGE_ALLOWED_ORIGINS")
-  ]
-    .filter((value): value is string => Boolean(value))
-    .flatMap((value) => value.split(","))
+function configuredOrigins(environmentName: string) {
+  return (getNetlifyEnv(environmentName) ?? "")
+    .split(",")
     .map((value) => normalizeOrigin(value.trim()))
     .filter((value): value is string => Boolean(value));
 }
 
-export function resolveCorsOrigin(req: Request, context: Context) {
+function resolveConfiguredCorsOrigin(req: Request, context: Context, environmentName: string) {
   const origin = req.headers.get("Origin");
   if (!origin) return { allowed: true, origin: undefined };
 
@@ -85,13 +81,21 @@ export function resolveCorsOrigin(req: Request, context: Context) {
     normalizeOrigin(context.site?.url),
     GITHUB_PAGES_ORIGIN,
     ...LOCAL_ORIGINS,
-    ...configuredOrigins()
+    ...configuredOrigins(environmentName)
   ]);
 
   return {
     allowed: allowedOrigins.has(normalized),
     origin: normalized
   };
+}
+
+export function resolveCorsOrigin(req: Request, context: Context) {
+  return resolveConfiguredCorsOrigin(req, context, "KNOWLEDGE_ALLOWED_ORIGINS");
+}
+
+export function resolvePublicSiteCorsOrigin(req: Request, context: Context) {
+  return resolveConfiguredCorsOrigin(req, context, "PUBLIC_SITE_ALLOWED_ORIGINS");
 }
 
 export function baseHeaders(corsOrigin?: string) {

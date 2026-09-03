@@ -183,6 +183,14 @@ export function resolveAdminRequestOrigin(req: Request, context: Context): Admin
   };
 }
 
+export function resolveOptionalAdminReadOrigin(req: Request, context: Context): AdminRequestOrigin {
+  if (req.headers.get("Origin") === null) {
+    return { allowed: true, origin: undefined };
+  }
+
+  return resolveAdminRequestOrigin(req, context);
+}
+
 export async function readBoundedJson(req: Request, maxBytes = ADMIN_BODY_LIMIT_BYTES): Promise<unknown> {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 0) {
     throw new Error("JSON body limit must be a non-negative integer.");

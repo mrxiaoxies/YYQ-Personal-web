@@ -15,6 +15,7 @@ import {
 const SITE_ORIGIN = "https://yyq-web.netlify.app";
 const PAGES_ORIGIN = "https://mrxiaoxies.github.io";
 const LOCAL_ADMIN_ORIGIN = "http://localhost:5173";
+const ATTACKER_ORIGIN = "https://attacker.example";
 const ADMIN_USER: PublicAdminUser = { email: "admin@example.com", id: "admin-user", role: "admin" };
 const REVISION: RevisionSummary = {
   actorEmail: ADMIN_USER.email,
@@ -177,6 +178,36 @@ test("public GET accepts an exact configured public site origin", async () => {
   }
 });
 
+test("public GET rejects a knowledge-only origin and accepts only the public-site allowlist", async () => {
+  const previousKnowledge = process.env.KNOWLEDGE_ALLOWED_ORIGINS;
+  const previousPublic = process.env.PUBLIC_SITE_ALLOWED_ORIGINS;
+  process.env.KNOWLEDGE_ALLOWED_ORIGINS = "https://knowledge-only.example";
+  process.env.PUBLIC_SITE_ALLOWED_ORIGINS = "https://public-site.example";
+
+  try {
+    const { handler } = createHandler();
+    const knowledgeOnly = await handler(
+      request("/api/site-content", { method: "GET", origin: "https://knowledge-only.example" }),
+      context()
+    );
+    const publicSite = await handler(
+      request("/api/site-content", { method: "GET", origin: "https://public-site.example" }),
+      context()
+    );
+
+    await expectError(knowledgeOnly, 403, "forbidden_origin");
+    assert.equal(knowledgeOnly.headers.get("Access-Control-Allow-Origin"), null);
+    assert.equal(publicSite.status, 200);
+    assert.equal(publicSite.headers.get("Access-Control-Allow-Origin"), "https://public-site.example");
+    assert.equal(publicSite.headers.get("Access-Control-Allow-Credentials"), null);
+  } finally {
+    if (previousKnowledge === undefined) delete process.env.KNOWLEDGE_ALLOWED_ORIGINS;
+    else process.env.KNOWLEDGE_ALLOWED_ORIGINS = previousKnowledge;
+    if (previousPublic === undefined) delete process.env.PUBLIC_SITE_ALLOWED_ORIGINS;
+    else process.env.PUBLIC_SITE_ALLOWED_ORIGINS = previousPublic;
+  }
+});
+
 test("admin restore OPTIONS validates target POST and returns credentialed CORS", async () => {
   const { handler } = createHandler();
   const response = await handler(
@@ -231,6 +262,41 @@ test("admin preflight rejects duplicate actions, unknown actions, and wrong targ
   );
 });
 
+test("administrator OPTIONS rejects missing and attacker origins before authentication or storage", async () => {
+  let authenticationCalls = 0;
+  const { handler, store } = createHandler({
+    authenticate: async () => {
+      authenticationCalls += 1;
+      return ADMIN_USER;
+    }
+  });
+  const routes = [
+    { path: "/api/admin/revisions", targetMethod: "GET" },
+    { path: "/api/admin/content", targetMethod: "PUT" },
+    { path: "/api/admin/content?action=restore", targetMethod: "POST" }
+  ];
+
+  for (const origin of [null, ATTACKER_ORIGIN]) {
+    for (const route of routes) {
+      const response = await handler(
+        request(route.path, {
+          headers: { "Access-Control-Request-Method": route.targetMethod },
+          method: "OPTIONS",
+          origin
+        }),
+        context()
+      );
+
+      await expectError(response, 403, "forbidden_origin");
+      assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+      assert.equal(response.headers.get("Access-Control-Allow-Credentials"), null);
+    }
+  }
+
+  assert.equal(authenticationCalls, 0);
+  assert.deepEqual(store.calls, { getCurrent: [], listRevisions: [], restore: [], save: [] });
+});
+
 test("admin content PUT without a valid session returns 401", async () => {
   const { handler, store } = createHandler({ authenticate: async () => null });
   const response = await handler(
@@ -242,6 +308,82 @@ test("admin content PUT without a valid session returns 401", async () => {
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), SITE_ORIGIN);
   assert.equal(response.headers.get("Access-Control-Allow-Credentials"), "true");
   assert.equal(store.calls.save.length, 0);
+});
+
+test("admin content mutations still reject missing Origin before authentication or storage", async () => {
+  let authenticationCalls = 0;
+  const { handler, store } = createHandler({
+    authenticate: async () => {
+      authenticationCalls += 1;
+      return ADMIN_USER;
+    }
+  });
+  const cases: Array<{ path: string; requestInit: RequestInit & { origin: null } }> = [
+    {
+      path: "/api/admin/content",
+      requestInit: { method: "PUT", body: JSON.stringify(validUpdate()), origin: null }
+    },
+    {
+      path: "/api/admin/content?action=restore",
+      requestInit: {
+        method: "POST",
+        body: JSON.stringify({ revisionId: REVISION.id, expectedVersion: defaultSiteContent.version }),
+        origin: null
+      }
+    }
+  ];
+
+  for (const item of cases) {
+    await expectError(
+      await handler(request(item.path, item.requestInit), context()),
+      403,
+      "forbidden_origin"
+    );
+  }
+
+  assert.equal(authenticationCalls, 0);
+  assert.equal(store.calls.save.length, 0);
+  assert.equal(store.calls.restore.length, 0);
+});
+
+test("admin content mutations reject attacker Origin before authentication or storage", async () => {
+  let authenticationCalls = 0;
+  const { handler, store } = createHandler({
+    authenticate: async () => {
+      authenticationCalls += 1;
+      return ADMIN_USER;
+    }
+  });
+  const cases: Array<{ path: string; requestInit: RequestInit & { origin: string } }> = [
+    {
+      path: "/api/admin/content",
+      requestInit: {
+        method: "PUT",
+        body: JSON.stringify(validUpdate()),
+        origin: ATTACKER_ORIGIN
+      }
+    },
+    {
+      path: "/api/admin/content?action=restore",
+      requestInit: {
+        method: "POST",
+        body: JSON.stringify({ revisionId: REVISION.id, expectedVersion: defaultSiteContent.version }),
+        origin: ATTACKER_ORIGIN
+      }
+    }
+  ];
+
+  for (const item of cases) {
+    await expectError(
+      await handler(request(item.path, item.requestInit), context()),
+      403,
+      "forbidden_origin"
+    );
+  }
+
+  assert.equal(authenticationCalls, 0);
+  assert.equal(store.calls.save.length, 0);
+  assert.equal(store.calls.restore.length, 0);
 });
 
 test("admin content PUT rejects unknown update fields with 422", async () => {
@@ -330,11 +472,16 @@ test("store validation and conflict errors outside publish conflicts map to 503"
   }
 });
 
-test("admin revisions GET returns revision summaries for an authenticated session", async () => {
+test("admin revisions GET without Origin returns revision summaries for an authenticated session", async () => {
   const { handler, store } = createHandler();
-  const response = await handler(request("/api/admin/revisions", { method: "GET" }), context());
+  const response = await handler(
+    request("/api/admin/revisions", { method: "GET", origin: null }),
+    context()
+  );
 
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+  assert.equal(response.headers.get("Access-Control-Allow-Credentials"), null);
   assert.deepEqual(await readJson(response), [REVISION]);
   assert.equal(store.calls.listRevisions.length, 1);
 });

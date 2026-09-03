@@ -11,6 +11,7 @@ import {
   hashSecret,
   readBoundedJson,
   readSessionCookie,
+  resolveOptionalAdminReadOrigin,
   resolveAdminRequestOrigin,
   safeSecretEqual,
   sessionCookie,
@@ -227,6 +228,38 @@ test("admin request origins reject missing, malformed, non-exact, and GitHub Pag
     assert.equal(origin("https://admin.example.com/").allowed, false);
     assert.equal(origin("https://admin.example.com/path").allowed, false);
     assert.equal(origin("https://mrxiaoxies.github.io").allowed, false);
+  });
+});
+
+test("optional administrator read origins allow missing Origin but validate any supplied Origin", async () => {
+  await withConfiguredOrigins("https://admin.example.com", () => {
+    const context = requestContext("https://site-name.netlify.app");
+
+    assert.deepEqual(
+      resolveOptionalAdminReadOrigin(
+        new Request("https://function.example.com/.netlify/functions/admin"),
+        context
+      ),
+      { allowed: true, origin: undefined }
+    );
+    assert.deepEqual(
+      resolveOptionalAdminReadOrigin(
+        new Request("https://function.example.com/.netlify/functions/admin", {
+          headers: { Origin: "https://admin.example.com" }
+        }),
+        context
+      ),
+      { allowed: true, origin: "https://admin.example.com" }
+    );
+    assert.deepEqual(
+      resolveOptionalAdminReadOrigin(
+        new Request("https://function.example.com/.netlify/functions/admin", {
+          headers: { Origin: "https://attacker.example" }
+        }),
+        context
+      ),
+      { allowed: false, origin: "https://attacker.example" }
+    );
   });
 });
 
