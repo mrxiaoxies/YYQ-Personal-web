@@ -63,6 +63,7 @@ function createUuidSequence() {
 function createFakeBlobStore(options: {
   currentWriteConflicts?: number;
   deleteFailures?: number;
+  listFailures?: number;
   revisionWriteFailures?: number;
   randomUUID?: () => string;
 } = {}) {
@@ -72,6 +73,7 @@ function createFakeBlobStore(options: {
   let etagVersion = 0;
   let remainingCurrentWriteConflicts = options.currentWriteConflicts ?? 0;
   let remainingDeleteFailures = options.deleteFailures ?? 0;
+  let remainingListFailures = options.listFailures ?? 0;
   let remainingRevisionWriteFailures = options.revisionWriteFailures ?? 0;
 
   const store = {
@@ -90,6 +92,10 @@ function createFakeBlobStore(options: {
     list(listOptions: { paginate?: boolean; prefix?: string }) {
       return {
         async *[Symbol.asyncIterator]() {
+          if (remainingListFailures > 0) {
+            remainingListFailures -= 1;
+            throw new Error("simulated revision listing failure");
+          }
           const keys = [...blobs.keys()].filter((key) => key.startsWith(listOptions.prefix ?? ""));
           yield {
             blobs: keys.map((key) => ({ etag: blobs.get(key)?.etag, key })),
@@ -141,6 +147,7 @@ function createFakeBlobStore(options: {
 function createHarness(options: {
   currentWriteConflicts?: number;
   deleteFailures?: number;
+  listFailures?: number;
   revisionWriteFailures?: number;
   randomUUID?: () => string;
 } = {}) {
@@ -714,6 +721,41 @@ test("missing committed edge exposes only the proven prefix and disables all cle
   assert.equal(fake.blobs.has(`revisions/${head.id}`), true);
 });
 
+test("cycle from the twentieth retained revision disables cleanup at the retention boundary", async () => {
+  const { clock, fake, store } = createHarness();
+  let expectedVersion = defaultSiteContent.version;
+
+  for (let index = 0; index < 20; index += 1) {
+    const saved = await store.save(
+      { expectedVersion, sections: mutateHomeTitle(defaultSiteContent, `cycle title ${index}`) },
+      ACTOR
+    );
+    expectedVersion = saved.document.version;
+    clock.advance(1);
+  }
+
+  const currentDocument = await store.getCurrent();
+  const oldestRetained = revisionWrites(fake)[0].value;
+  fake.put(`revisions/${oldestRetained.id}`, {
+    ...oldestRetained,
+    snapshot: currentDocument,
+    sourceVersion: currentDocument.version
+  });
+
+  const ghostId = "2026-08-26T11:00:00.000Z-00000000-0000-4000-8000-000000000714";
+  const ghost = committedRevision({
+    createdAt: "2026-08-26T11:00:00.000Z",
+    id: ghostId,
+    snapshot: defaultSiteContent,
+    targetVersion: targetVersionFor(ghostId)
+  });
+  fake.put(`revisions/${ghost.id}`, ghost);
+
+  assert.equal((await store.listRevisions()).length, 20);
+  assert.deepEqual(fake.deletes, []);
+  assert.equal(fake.blobs.has(`revisions/${ghost.id}`), true);
+});
+
 test("complete committed chain still cleans parse-valid ghosts", async () => {
   const { fake, store } = createHarness();
   const headId = "2026-08-26T10:00:00.000Z-00000000-0000-4000-8000-000000000721";
@@ -845,6 +887,56 @@ test("public retention returns newest 20 committed revisions while physical clea
   assert.ok(fake.deletes.every((key) => key.startsWith("revisions/")));
   assert.equal(publicRevisions.length, 20);
   assert.ok([...fake.blobs.keys()].filter((key) => key.startsWith("revisions/")).length > 20);
+});
+
+test("continued saves keep exactly 20 physical canonical revisions after the first retention prune", async () => {
+  const { clock, fake, store } = createHarness();
+  let expectedVersion = defaultSiteContent.version;
+
+  for (let index = 0; index < 45; index += 1) {
+    const saved = await store.save(
+      { expectedVersion, sections: mutateHomeTitle(defaultSiteContent, `retained title ${index}`) },
+      ACTOR
+    );
+    expectedVersion = saved.document.version;
+    clock.advance(1);
+  }
+
+  const publicRevisions = await store.listRevisions();
+  const physicalRevisionKeys = [...fake.blobs.keys()].filter((key) => key.startsWith("revisions/"));
+  assert.equal(publicRevisions.length, 20);
+  assert.equal(physicalRevisionKeys.length, 20);
+  assert.equal((await store.getCurrent()).sections.home.titleLines[0], "retained title 44");
+});
+
+test("a post-commit revision listing failure does not turn a successful save into an error", async () => {
+  const { fake, store } = createHarness({ listFailures: 1 });
+  const warnings: unknown[][] = [];
+  const originalConsoleWarn = console.warn;
+
+  try {
+    console.warn = (...args: unknown[]) => warnings.push(args);
+    const saved = await store.save(
+      {
+        expectedVersion: defaultSiteContent.version,
+        sections: mutateHomeTitle(defaultSiteContent, "published despite maintenance failure")
+      },
+      ACTOR
+    );
+
+    assert.equal(saved.document.sections.home.titleLines[0], "published despite maintenance failure");
+    assert.deepEqual(await store.getCurrent(), saved.document);
+    assert.equal(fake.blobs.has(`revisions/${saved.revision.id}`), true);
+  } finally {
+    console.warn = originalConsoleWarn;
+  }
+
+  assert.deepEqual(warnings, [[
+    "site_content_revision_maintenance_failed",
+    { errorName: "Error" }
+  ]]);
+  assert.equal(JSON.stringify(warnings).includes("published despite maintenance failure"), false);
+  assert.equal(JSON.stringify(warnings).includes(ACTOR.email), false);
 });
 
 test("schema parse failures and current blobs without etags fail closed", async () => {

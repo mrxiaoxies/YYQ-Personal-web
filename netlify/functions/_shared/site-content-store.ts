@@ -75,9 +75,16 @@ const REVISION_WRITE_RETRIES = 3;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const REVISION_ID_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)-([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
 const CONTENT_VERSION_PATTERN = /^content-(.+)$/i;
+const SAFE_MAINTENANCE_ERROR_NAMES = new Set(["Error", "RangeError", "SyntaxError", "TypeError"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function safeMaintenanceErrorName(error: unknown): string {
+  return error instanceof Error && SAFE_MAINTENANCE_ERROR_NAMES.has(error.name)
+    ? error.name
+    : "UnknownError";
 }
 
 function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]) {
@@ -277,7 +284,14 @@ function committedChain(records: RevisionRecord[], currentVersion: string): Comm
       return { chainNewestFirst: chain, complete: false };
     }
     chain.push(record);
-    cursor = record.sourceVersion;
+    const nextCursor = record.sourceVersion;
+    if (seenVersions.has(nextCursor)) {
+      return { chainNewestFirst: chain, complete: false };
+    }
+    if (chain.length === RETAINED_REVISIONS) {
+      return { chainNewestFirst: chain, complete: true };
+    }
+    cursor = nextCursor;
   }
 }
 
@@ -438,8 +452,14 @@ export function createBlobSiteContentStore(options: CreateBlobSiteContentStoreOp
       }
       throw error;
     }
-    const { allRecords, chainNewestFirst, cleanupAllowed } = await readCommittedChain(document.version);
-    await cleanupRevisionRecords(allRecords, chainNewestFirst, cleanupAllowed);
+    try {
+      const { allRecords, chainNewestFirst, cleanupAllowed } = await readCommittedChain(document.version);
+      await cleanupRevisionRecords(allRecords, chainNewestFirst, cleanupAllowed);
+    } catch (error) {
+      console.warn("site_content_revision_maintenance_failed", {
+        errorName: safeMaintenanceErrorName(error)
+      });
+    }
     return { document, revision: toRevisionSummary(revision) };
   }
 
