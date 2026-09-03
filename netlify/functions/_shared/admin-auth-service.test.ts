@@ -165,6 +165,70 @@ function createClock(initial = "2026-08-26T10:00:00.000Z") {
   };
 }
 
+function createLegacyMigrationBlobHarness(user: AdminUser) {
+  const values = new Map<string, unknown>();
+  const etags = new Map<string, string>();
+  const writes: Array<{ key: string; modified: boolean; options?: Record<string, unknown>; value: unknown }> = [];
+  let etagVersion = 0;
+
+  function legacyRecord() {
+    const legacy = clone(user) as unknown as Record<string, unknown>;
+    delete legacy.generation;
+    return legacy;
+  }
+
+  function replaceRawUser(value: unknown, etag = `legacy-etag-${++etagVersion}`) {
+    values.set("users/admin", clone(value));
+    etags.set("users/admin", etag);
+  }
+
+  const fakeStore = {
+    async delete(key: string) {
+      values.delete(key);
+      etags.delete(key);
+    },
+    async get(key: string) {
+      return values.has(key) ? clone(values.get(key)) : null;
+    },
+    async getWithMetadata(key: string) {
+      if (!values.has(key)) return null;
+      return { data: clone(values.get(key)), etag: etags.get(key), metadata: {} };
+    },
+    list(options: { prefix?: string }) {
+      return {
+        async *[Symbol.asyncIterator]() {
+          const prefix = options.prefix ?? "";
+          yield {
+            blobs: [...values.keys()].filter((key) => key.startsWith(prefix)).map((key) => ({ etag: etags.get(key), key })),
+            directories: []
+          };
+        }
+      };
+    },
+    async setJSON(key: string, value: unknown, options?: Record<string, unknown>) {
+      let modified = true;
+      if (options?.onlyIfNew === true && values.has(key)) modified = false;
+      if (typeof options?.onlyIfMatch === "string" && etags.get(key) !== options.onlyIfMatch) modified = false;
+      writes.push({ key, modified, options: options ? clone(options) : undefined, value: clone(value) });
+      if (!modified) return { modified: false };
+      etagVersion += 1;
+      values.set(key, clone(value));
+      etags.set(key, `etag-${etagVersion}`);
+      return { etag: `etag-${etagVersion}`, modified: true };
+    }
+  };
+
+  replaceRawUser(legacyRecord(), "legacy-etag-initial");
+  return {
+    etags,
+    legacyRecord,
+    replaceRawUser,
+    store: createBlobAdminStore(() => fakeStore as never),
+    values,
+    writes
+  };
+}
+
 function createTestService(options: {
   setupToken?: string;
   recoveryToken?: string;
@@ -219,6 +283,7 @@ test("setup succeeds once and permanently consumes the setup token", async () =>
 
   assert.equal(first.user.email, "admin@example.com");
   assert.equal(first.user.role, "admin");
+  assert.equal(harness.store.inspectUsers()[0]?.generation, 1);
   await expectAuthError(
     () =>
       harness.service.setup({
@@ -308,6 +373,7 @@ test("login creates a hashed seven-day session and uses generic credential failu
   const stored = await harness.store.getSession(hashSecret(result.sessionToken));
 
   assert.ok(stored);
+  assert.equal(stored.generation, 1);
   assert.equal(stored.tokenHash, hashSecret(result.sessionToken));
   assert.notEqual(stored.tokenHash, result.sessionToken);
   assert.equal(new Date(stored.expiresAt).getTime() - harness.clock.now().getTime(), SEVEN_DAYS_MS);
@@ -479,6 +545,63 @@ test("inactive users cannot log in or authenticate an existing session", async (
   );
 });
 
+test("authentication deletes a session whose generation is stale", async () => {
+  const harness = await createInitializedHarness();
+  const login = await harness.service.login({
+    email: "admin@example.com",
+    password: STRONG_PASSWORD,
+    rateLimitKey: "stale-generation"
+  });
+  const user = harness.store.inspectUsers()[0];
+  assert.ok(user);
+  await harness.store.updateUser({
+    ...user,
+    generation: user.generation + 1,
+    updatedAt: harness.clock.now().toISOString()
+  });
+
+  assert.equal(await harness.service.authenticate(login.sessionToken), null);
+  assert.equal(await harness.store.getSession(hashSecret(login.sessionToken)), null);
+});
+
+test("an old-password login racing recovery creates only a stale rejected session", async () => {
+  const harness = await createInitializedHarness();
+  const originalSetSession = harness.store.setSession.bind(harness.store);
+  let blockNextSession = true;
+  let releaseSession!: () => void;
+  let announceBlocked!: () => void;
+  const blocked = new Promise<void>((resolve) => { announceBlocked = resolve; });
+  const released = new Promise<void>((resolve) => { releaseSession = resolve; });
+  harness.store.setSession = async (session) => {
+    if (blockNextSession) {
+      blockNextSession = false;
+      announceBlocked();
+      await released;
+    }
+    await originalSetSession(session);
+  };
+
+  const racingLogin = harness.service.login({
+    email: "admin@example.com",
+    password: STRONG_PASSWORD,
+    rateLimitKey: "old-password-race"
+  });
+  await blocked;
+  await harness.service.recover({
+    email: "admin@example.com",
+    recoveryToken: RECOVERY_TOKEN,
+    newPassword: NEW_PASSWORD
+  });
+  releaseSession();
+  const staleLogin = await racingLogin;
+
+  const staleSession = await harness.store.getSession(hashSecret(staleLogin.sessionToken));
+  assert.equal(staleSession?.generation, 1);
+  assert.equal(harness.store.inspectUsers()[0]?.generation, 2);
+  assert.equal(await harness.service.authenticate(staleLogin.sessionToken), null);
+  assert.equal(await harness.store.getSession(hashSecret(staleLogin.sessionToken)), null);
+});
+
 test("recovery token is one-time and clears every previous session", async () => {
   const harness = await createInitializedHarness();
   const first = await harness.service.login({
@@ -497,8 +620,18 @@ test("recovery token is one-time and clears every previous session", async () =>
     recoveryToken: RECOVERY_TOKEN,
     newPassword: NEW_PASSWORD
   });
+  assert.equal(harness.store.inspectUsers()[0]?.generation, 2);
   assert.equal(await harness.service.authenticate(first.sessionToken), null);
   assert.equal(await harness.service.authenticate(second.sessionToken), null);
+  await expectAuthError(
+    () =>
+      harness.service.recover({
+        email: "admin@example.com",
+        recoveryToken: RECOVERY_TOKEN,
+        newPassword: NEW_PASSWORD
+      }),
+    "token_consumed"
+  );
   await expectAuthError(
     () =>
       harness.service.recover({
@@ -514,6 +647,235 @@ test("recovery token is one-time and clears every previous session", async () =>
     rateLimitKey: "after-recovery"
   });
   assert.equal(login.user.email, "admin@example.com");
+});
+
+test("recovery resumes after the pending control is stored but the user update fails", async () => {
+  const harness = await createInitializedHarness();
+  const originalUpdateUser = harness.store.updateUser.bind(harness.store);
+  let failNextUpdate = true;
+  harness.store.updateUser = async (user) => {
+    if (failNextUpdate) {
+      failNextUpdate = false;
+      throw new Error("simulated recovery user update failure");
+    }
+    await originalUpdateUser(user);
+  };
+
+  await assert.rejects(
+    () => harness.service.recover({
+      email: "admin@example.com",
+      recoveryToken: RECOVERY_TOKEN,
+      newPassword: NEW_PASSWORD
+    }),
+    /simulated recovery user update failure/
+  );
+  const pending = harness.store.inspectControls().get(`recovery/${hashSecret(RECOVERY_TOKEN)}`);
+  assert.equal(pending?.state, "pending");
+  assert.equal(pending?.targetGeneration, 2);
+  assert.equal(harness.store.inspectUsers()[0]?.generation, 1);
+  const pendingJson = JSON.stringify(pending);
+  for (const secret of [RECOVERY_TOKEN, NEW_PASSWORD]) assert.equal(pendingJson.includes(secret), false);
+
+  await expectAuthError(
+    () => harness.service.recover({
+      email: "other@example.com",
+      recoveryToken: RECOVERY_TOKEN,
+      newPassword: NEW_PASSWORD
+    }),
+    "invalid_recovery_token"
+  );
+  await expectAuthError(
+    () => harness.service.recover({
+      email: "admin@example.com",
+      recoveryToken: RECOVERY_TOKEN,
+      newPassword: ANOTHER_STRONG_PASSWORD
+    }),
+    "invalid_recovery_token"
+  );
+  await harness.service.recover({
+    email: "admin@example.com",
+    recoveryToken: RECOVERY_TOKEN,
+    newPassword: NEW_PASSWORD
+  });
+  assert.equal(harness.store.inspectUsers()[0]?.generation, 2);
+  assert.equal(harness.store.inspectControls().get(`recovery/${hashSecret(RECOVERY_TOKEN)}`)?.state, "completed");
+});
+
+test("recovery logically revokes sessions before physical deletion and retries cleanup", async () => {
+  const harness = await createInitializedHarness();
+  const login = await harness.service.login({
+    email: "admin@example.com",
+    password: STRONG_PASSWORD,
+    rateLimitKey: "delete-failure-session"
+  });
+  const originalDeleteSessions = harness.store.deleteSessionsForUser.bind(harness.store);
+  let failNextDelete = true;
+  harness.store.deleteSessionsForUser = async (userId) => {
+    if (failNextDelete) {
+      failNextDelete = false;
+      throw new Error("simulated session deletion failure");
+    }
+    await originalDeleteSessions(userId);
+  };
+
+  await assert.rejects(
+    () => harness.service.recover({
+      email: "admin@example.com",
+      recoveryToken: RECOVERY_TOKEN,
+      newPassword: NEW_PASSWORD
+    }),
+    /simulated session deletion failure/
+  );
+  assert.equal(harness.store.inspectUsers()[0]?.generation, 2);
+  assert.equal(await harness.service.authenticate(login.sessionToken), null);
+  assert.equal(harness.store.inspectControls().get(`recovery/${hashSecret(RECOVERY_TOKEN)}`)?.state, "pending");
+
+  await harness.service.recover({
+    email: "admin@example.com",
+    recoveryToken: RECOVERY_TOKEN,
+    newPassword: NEW_PASSWORD
+  });
+  assert.equal(harness.store.inspectSessions().size, 0);
+  assert.equal(harness.store.inspectControls().get(`recovery/${hashSecret(RECOVERY_TOKEN)}`)?.state, "completed");
+});
+
+test("recovery retries safely when writing the completed control fails", async () => {
+  const harness = await createInitializedHarness();
+  const originalSetControl = harness.store.setControl.bind(harness.store);
+  let failCompletedWrite = true;
+  harness.store.setControl = async (key, value) => {
+    if (key.startsWith("recovery/") && value.state === "completed" && failCompletedWrite) {
+      failCompletedWrite = false;
+      throw new Error("simulated completed control write failure");
+    }
+    await originalSetControl(key, value);
+  };
+
+  await assert.rejects(
+    () => harness.service.recover({
+      email: "admin@example.com",
+      recoveryToken: RECOVERY_TOKEN,
+      newPassword: NEW_PASSWORD
+    }),
+    /simulated completed control write failure/
+  );
+  assert.equal(harness.store.inspectUsers()[0]?.generation, 2);
+  assert.equal(harness.store.inspectControls().get(`recovery/${hashSecret(RECOVERY_TOKEN)}`)?.state, "pending");
+
+  await harness.service.recover({
+    email: "admin@example.com",
+    recoveryToken: RECOVERY_TOKEN,
+    newPassword: NEW_PASSWORD
+  });
+  assert.equal(harness.store.inspectControls().get(`recovery/${hashSecret(RECOVERY_TOKEN)}`)?.state, "completed");
+  await expectAuthError(
+    () => harness.service.recover({
+      email: "admin@example.com",
+      recoveryToken: RECOVERY_TOKEN,
+      newPassword: NEW_PASSWORD
+    }),
+    "token_consumed"
+  );
+});
+
+test("exact legacy users migrate once with CAS and can login and recover", async () => {
+  const password = await hashPassword(STRONG_PASSWORD);
+  const user: AdminUser = {
+    id: "35fcb91f-c349-43db-9b6c-a791c745e415",
+    email: "admin@example.com",
+    emailNormalized: "admin@example.com",
+    role: "admin",
+    passwordHash: password.digest,
+    passwordSalt: password.salt,
+    passwordAlgorithm: password.algorithm,
+    createdAt: "2026-08-26T10:00:00.000Z",
+    updatedAt: "2026-08-26T10:00:00.000Z",
+    active: true,
+    generation: 1
+  };
+  const blob = createLegacyMigrationBlobHarness(user);
+
+  const concurrentUsers = await Promise.all([blob.store.getOnlyUser(), blob.store.getOnlyUser()]);
+  assert.deepEqual(concurrentUsers.map((candidate) => candidate?.generation), [1, 1]);
+  assert.equal(
+    blob.writes.filter((write) =>
+      write.key === "users/admin" &&
+      write.modified &&
+      write.options?.onlyIfMatch === "legacy-etag-initial"
+    ).length,
+    1
+  );
+
+  blob.replaceRawUser(blob.legacyRecord(), "legacy-etag-login");
+  const service = createAdminAuthService({
+    store: blob.store,
+    now: () => new Date("2026-08-26T10:00:00.000Z"),
+    readEnvironment: (name) => name === "ADMIN_RECOVERY_TOKEN" ? RECOVERY_TOKEN : undefined
+  });
+  const login = await service.login({
+    email: "admin@example.com",
+    password: STRONG_PASSWORD,
+    rateLimitKey: "legacy-login"
+  });
+  assert.equal(login.user.email, "admin@example.com");
+  assert.equal((blob.values.get("users/admin") as AdminUser).generation, 1);
+  assert.equal(
+    blob.writes.some((write) =>
+      write.key === "users/admin" &&
+      write.modified &&
+      write.options?.onlyIfMatch === "legacy-etag-login" &&
+      (write.value as AdminUser).generation === 1
+    ),
+    true
+  );
+
+  blob.replaceRawUser(blob.legacyRecord(), "legacy-etag-recovery");
+  await service.recover({
+    email: "admin@example.com",
+    recoveryToken: RECOVERY_TOKEN,
+    newPassword: NEW_PASSWORD
+  });
+  assert.equal(
+    blob.writes.some((write) =>
+      write.key === "users/admin" &&
+      write.modified &&
+      write.options?.onlyIfMatch === "legacy-etag-recovery" &&
+      (write.value as AdminUser).generation === 1
+    ),
+    true
+  );
+  assert.equal((blob.values.get("users/admin") as AdminUser).generation, 2);
+  assert.equal(await service.authenticate(login.sessionToken), null);
+});
+
+test("legacy user migration rejects missing, extra, and invalid fields", async () => {
+  const password = await hashPassword(STRONG_PASSWORD);
+  const user: AdminUser = {
+    id: "36ca1490-eb89-4bfd-9cad-b82c796b7e12",
+    email: "admin@example.com",
+    emailNormalized: "admin@example.com",
+    role: "admin",
+    passwordHash: password.digest,
+    passwordSalt: password.salt,
+    passwordAlgorithm: password.algorithm,
+    createdAt: "2026-08-26T10:00:00.000Z",
+    updatedAt: "2026-08-26T10:00:00.000Z",
+    active: true,
+    generation: 1
+  };
+  const blob = createLegacyMigrationBlobHarness(user);
+  const legacy = blob.legacyRecord();
+
+  const missing = clone(legacy);
+  delete missing.passwordSalt;
+  blob.replaceRawUser(missing);
+  await assert.rejects(() => blob.store.getOnlyUser(), /Invalid administrator user data/);
+
+  blob.replaceRawUser({ ...legacy, unexpected: true });
+  await assert.rejects(() => blob.store.getOnlyUser(), /Invalid administrator user data/);
+
+  blob.replaceRawUser({ ...legacy, role: "owner" });
+  await assert.rejects(() => blob.store.getOnlyUser(), /Invalid administrator user data/);
 });
 
 test("an incorrect recovery token does not consume the configured token", async () => {
@@ -641,7 +1003,8 @@ test("Blob adapter uses strong conditional writes, bounded scans, and fail-close
     id: "d73e0ef4-d502-4ba8-98ae-ec92b56701fe", email: "admin@example.com",
     emailNormalized: "admin@example.com", role: "admin", passwordHash: password.digest,
     passwordSalt: password.salt, passwordAlgorithm: password.algorithm,
-    createdAt: "2026-08-26T10:00:00.000Z", updatedAt: "2026-08-26T10:00:00.000Z", active: true
+    createdAt: "2026-08-26T10:00:00.000Z", updatedAt: "2026-08-26T10:00:00.000Z", active: true,
+    generation: 1
   };
   assert.equal(await store.createUserOnce(user), true);
   assert.equal(await store.createUserOnce(user), false);
@@ -680,11 +1043,12 @@ test("Blob adapter uses strong conditional writes, bounded scans, and fail-close
   const matchingHash = "b".repeat(64);
   const otherHash = "c".repeat(64);
   values.set(`sessions/${matchingHash}`, {
-    tokenHash: matchingHash, userId: user.id, createdAt: "2026-08-26T10:00:00.000Z",
+    tokenHash: matchingHash, userId: user.id, generation: 1, createdAt: "2026-08-26T10:00:00.000Z",
     expiresAt: "2026-09-02T10:00:00.000Z", lastSeenAt: "2026-08-26T10:00:00.000Z"
   });
   values.set(`sessions/${otherHash}`, {
-    tokenHash: otherHash, userId: "274107a7-bf72-4cea-8c79-6550ddce4e63", createdAt: "2026-08-26T10:00:00.000Z",
+    tokenHash: otherHash, userId: "274107a7-bf72-4cea-8c79-6550ddce4e63", generation: 1,
+    createdAt: "2026-08-26T10:00:00.000Z",
     expiresAt: "2026-09-02T10:00:00.000Z", lastSeenAt: "2026-08-26T10:00:00.000Z"
   });
   await store.deleteSessionsForUser(user.id);
@@ -693,33 +1057,16 @@ test("Blob adapter uses strong conditional writes, bounded scans, and fail-close
 
   values.set("users/admin", { active: true });
   await assert.rejects(() => store.getOnlyUser(), /Invalid administrator user data/);
+  values.set("users/admin", { ...user, generation: 0 });
+  await assert.rejects(() => store.getOnlyUser(), /Invalid administrator user data/);
   values.set(`sessions/${matchingHash}`, {
-    tokenHash: otherHash, userId: user.id, createdAt: "2026-08-26T10:00:00.000Z",
+    tokenHash: matchingHash, userId: user.id, createdAt: "2026-08-26T10:00:00.000Z",
+    expiresAt: "2026-09-02T10:00:00.000Z", lastSeenAt: "2026-08-26T10:00:00.000Z"
+  });
+  await assert.rejects(() => store.getSession(matchingHash), /Invalid administrator session data/);
+  values.set(`sessions/${matchingHash}`, {
+    tokenHash: otherHash, userId: user.id, generation: 1, createdAt: "2026-08-26T10:00:00.000Z",
     expiresAt: "2026-09-02T10:00:00.000Z", lastSeenAt: "2026-08-26T10:00:00.000Z"
   });
   await assert.rejects(() => store.getSession(matchingHash), /session.*key|key.*session/i);
-});
-
-test("recovery does not change the password before old sessions are invalidated", async () => {
-  const store = createMemoryAdminStore();
-  const originalDeleteSessions = store.deleteSessionsForUser;
-  const harness = createTestService({ setupToken: SETUP_TOKEN, recoveryToken: RECOVERY_TOKEN, store });
-  await harness.service.setup({ email: "admin@example.com", password: STRONG_PASSWORD, setupToken: SETUP_TOKEN });
-  store.deleteSessionsForUser = async () => { throw new Error("simulated session deletion failure"); };
-
-  await assert.rejects(
-    () => harness.service.recover({ email: "admin@example.com", recoveryToken: RECOVERY_TOKEN, newPassword: NEW_PASSWORD }),
-    /simulated session deletion failure/
-  );
-  store.deleteSessionsForUser = originalDeleteSessions;
-  const login = await harness.service.login({
-    email: "admin@example.com", password: STRONG_PASSWORD, rateLimitKey: "recovery-delete-failure-old-password"
-  });
-  assert.equal(login.user.email, "admin@example.com");
-  await expectAuthError(
-    () => harness.service.login({
-      email: "admin@example.com", password: NEW_PASSWORD, rateLimitKey: "recovery-delete-failure-new-password"
-    }),
-    "invalid_credentials"
-  );
 });

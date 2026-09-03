@@ -13,11 +13,13 @@ export type AdminUser = {
   createdAt: string;
   updatedAt: string;
   active: boolean;
+  generation: number;
 };
 
 export type AdminSession = {
   tokenHash: string;
   userId: string;
+  generation: number;
   createdAt: string;
   expiresAt: string;
   lastSeenAt: string;
@@ -60,6 +62,21 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
 const CONTROL_KEY_PATTERN = /^[A-Za-z0-9/_-]+$/;
+const USER_MIGRATION_CAS_RETRIES = 4;
+const ADMIN_USER_KEYS = [
+  "active",
+  "createdAt",
+  "email",
+  "emailNormalized",
+  "generation",
+  "id",
+  "passwordAlgorithm",
+  "passwordHash",
+  "passwordSalt",
+  "role",
+  "updatedAt"
+] as const;
+const LEGACY_ADMIN_USER_KEYS = ADMIN_USER_KEYS.filter((key) => key !== "generation");
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -81,26 +98,20 @@ function isCanonicalEmail(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= 320 && value === value.trim();
 }
 
+function isPositiveGeneration(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) > 0;
+}
+
 function parseAdminUser(value: unknown): AdminUser {
   if (
     !isRecord(value) ||
-    !hasExactKeys(value, [
-      "active",
-      "createdAt",
-      "email",
-      "emailNormalized",
-      "id",
-      "passwordAlgorithm",
-      "passwordHash",
-      "passwordSalt",
-      "role",
-      "updatedAt"
-    ]) ||
+    !hasExactKeys(value, ADMIN_USER_KEYS) ||
     typeof value.active !== "boolean" ||
     !isIsoDate(value.createdAt) ||
     !isCanonicalEmail(value.email) ||
     !isCanonicalEmail(value.emailNormalized) ||
     value.emailNormalized !== value.emailNormalized.toLowerCase() ||
+    !isPositiveGeneration(value.generation) ||
     !UUID_PATTERN.test(String(value.id)) ||
     value.passwordAlgorithm !== "scrypt" ||
     typeof value.passwordHash !== "string" ||
@@ -118,13 +129,27 @@ function parseAdminUser(value: unknown): AdminUser {
   return value as AdminUser;
 }
 
+function parseStoredAdminUser(value: unknown): { legacy: boolean; user: AdminUser } {
+  if (!isRecord(value)) {
+    throw new Error("Invalid administrator user data in Blob storage.");
+  }
+  if (hasExactKeys(value, ADMIN_USER_KEYS)) {
+    return { legacy: false, user: parseAdminUser(value) };
+  }
+  if (hasExactKeys(value, LEGACY_ADMIN_USER_KEYS)) {
+    return { legacy: true, user: parseAdminUser({ ...value, generation: 1 }) };
+  }
+  throw new Error("Invalid administrator user data in Blob storage.");
+}
+
 function parseAdminSession(value: unknown): AdminSession {
   if (
     !isRecord(value) ||
-    !hasExactKeys(value, ["createdAt", "expiresAt", "lastSeenAt", "tokenHash", "userId"]) ||
+    !hasExactKeys(value, ["createdAt", "expiresAt", "generation", "lastSeenAt", "tokenHash", "userId"]) ||
     !isIsoDate(value.createdAt) ||
     !isIsoDate(value.expiresAt) ||
     !isIsoDate(value.lastSeenAt) ||
+    !isPositiveGeneration(value.generation) ||
     typeof value.tokenHash !== "string" ||
     !SHA256_PATTERN.test(value.tokenHash) ||
     typeof value.userId !== "string" ||
@@ -173,6 +198,24 @@ async function readJson<T>(store: Store, key: string, parser: (value: unknown) =
   return value === null ? null : parser(value);
 }
 
+async function readAndMigrateAdminUser(store: Store): Promise<AdminUser | null> {
+  for (let retry = 0; retry < USER_MIGRATION_CAS_RETRIES; retry += 1) {
+    const result = await store.getWithMetadata(USER_KEY, { type: "json" });
+    if (result === null) return null;
+    if (typeof result.etag !== "string" || result.etag.length === 0) {
+      throw new Error("Administrator user Blob is missing an ETag.");
+    }
+
+    const parsed = parseStoredAdminUser(result.data);
+    if (!parsed.legacy) return parsed.user;
+
+    const migration = await store.setJSON(USER_KEY, parsed.user, { onlyIfMatch: result.etag });
+    if (migration.modified) return parsed.user;
+  }
+
+  throw new Error("Administrator user migration did not converge.");
+}
+
 type AdminBlobStoreFactory = (options: { consistency: "strong"; name: string }) => Store;
 
 export function createBlobAdminStore(
@@ -182,12 +225,12 @@ export function createBlobAdminStore(
 
   return {
     async getUserByEmail(emailNormalized) {
-      const user = await readJson(store, USER_KEY, parseAdminUser);
+      const user = await readAndMigrateAdminUser(store);
       return user?.emailNormalized === emailNormalized ? user : null;
     },
 
     async getOnlyUser() {
-      return readJson(store, USER_KEY, parseAdminUser);
+      return readAndMigrateAdminUser(store);
     },
 
     async createUserOnce(user) {

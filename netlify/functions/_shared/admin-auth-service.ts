@@ -92,6 +92,33 @@ type SetupControl =
   | { state: "pending"; tokenFingerprint: string; createdAt: string }
   | { state: "completed"; tokenFingerprint: string; createdAt: string; completedAt: string };
 
+type PendingRecoveryControl = {
+  state: "pending";
+  tokenFingerprint: string;
+  operationId: string;
+  userId: string;
+  emailNormalized: string;
+  targetGeneration: number;
+  passwordHash: string;
+  passwordSalt: string;
+  passwordAlgorithm: "scrypt";
+  createdAt: string;
+  updatedAt: string;
+};
+
+type RecoveryControl =
+  | PendingRecoveryControl
+  | {
+      state: "completed";
+      tokenFingerprint: string;
+      operationId: string;
+      userId: string;
+      emailNormalized: string;
+      targetGeneration: number;
+      createdAt: string;
+      completedAt: string;
+    };
+
 const SETUP_CONTROL_KEY = "setup-lock";
 const LOGIN_FAILURE_LIMIT = 5;
 const LOGIN_ATTEMPT_CAS_RETRIES = 8;
@@ -102,6 +129,9 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_OPERATOR_TOKEN_LENGTH = 32;
 const MAX_OPERATOR_TOKEN_LENGTH = 512;
 const MAX_RATE_LIMIT_KEY_LENGTH = 512;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
 const DUMMY_PASSWORD_RECORD: PasswordDigest = {
   algorithm: "scrypt",
   digest: Buffer.alloc(64).toString("base64url"),
@@ -162,26 +192,36 @@ function currentAttempt(attempt: LoginAttempt | null, nowMs: number) {
   return nowMs - startedAt >= LOGIN_WINDOW_MS ? null : attempt;
 }
 
+function isIsoDate(candidate: unknown): candidate is string {
+  if (typeof candidate !== "string") return false;
+  const timestamp = Date.parse(candidate);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === candidate;
+}
+
+function hasExactKeys(value: Record<string, unknown>, expectedKeys: readonly string[]) {
+  const keys = Object.keys(value).sort();
+  const expected = [...expectedKeys].sort();
+  return keys.length === expected.length && keys.every((key, index) => key === expected[index]);
+}
+
+function isPositiveGeneration(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) > 0;
+}
+
 function parseSetupControl(value: Record<string, unknown> | null): SetupControl | null {
   if (value === null) return null;
   const keys = Object.keys(value).sort();
   const pendingKeys = ["createdAt", "state", "tokenFingerprint"];
   const completedKeys = ["completedAt", "createdAt", "state", "tokenFingerprint"];
   const expectedKeys = value.state === "pending" ? pendingKeys : value.state === "completed" ? completedKeys : null;
-  const validDate = (candidate: unknown) => {
-    if (typeof candidate !== "string") return false;
-    const timestamp = Date.parse(candidate);
-    return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === candidate;
-  };
-
   if (
     !expectedKeys ||
     keys.length !== expectedKeys.length ||
     !keys.every((key, index) => key === expectedKeys[index]) ||
     typeof value.tokenFingerprint !== "string" ||
     !/^[0-9a-f]{64}$/.test(value.tokenFingerprint) ||
-    !validDate(value.createdAt) ||
-    (value.state === "completed" && !validDate(value.completedAt))
+    !isIsoDate(value.createdAt) ||
+    (value.state === "completed" && !isIsoDate(value.completedAt))
   ) {
     throw new AdminAuthError("setup_closed");
   }
@@ -189,18 +229,82 @@ function parseSetupControl(value: Record<string, unknown> | null): SetupControl 
   return value as SetupControl;
 }
 
+function parseRecoveryControl(value: Record<string, unknown> | null): RecoveryControl | null {
+  if (value === null) return null;
+
+  const pendingKeys = [
+    "createdAt",
+    "emailNormalized",
+    "operationId",
+    "passwordAlgorithm",
+    "passwordHash",
+    "passwordSalt",
+    "state",
+    "targetGeneration",
+    "tokenFingerprint",
+    "updatedAt",
+    "userId"
+  ];
+  const completedKeys = [
+    "completedAt",
+    "createdAt",
+    "emailNormalized",
+    "operationId",
+    "state",
+    "targetGeneration",
+    "tokenFingerprint",
+    "userId"
+  ];
+  const expectedKeys = value.state === "pending" ? pendingKeys : value.state === "completed" ? completedKeys : null;
+  const commonValid =
+    expectedKeys !== null &&
+    hasExactKeys(value, expectedKeys) &&
+    typeof value.tokenFingerprint === "string" &&
+    SHA256_PATTERN.test(value.tokenFingerprint) &&
+    typeof value.operationId === "string" &&
+    UUID_PATTERN.test(value.operationId) &&
+    typeof value.userId === "string" &&
+    UUID_PATTERN.test(value.userId) &&
+    typeof value.emailNormalized === "string" &&
+    value.emailNormalized.length > 0 &&
+    value.emailNormalized.length <= 320 &&
+    value.emailNormalized === value.emailNormalized.trim().toLowerCase() &&
+    EMAIL_PATTERN.test(value.emailNormalized) &&
+    isPositiveGeneration(value.targetGeneration) &&
+    isIsoDate(value.createdAt);
+
+  if (
+    !commonValid ||
+    (value.state === "pending" &&
+      (value.passwordAlgorithm !== "scrypt" ||
+        typeof value.passwordHash !== "string" ||
+        value.passwordHash.length !== 86 ||
+        !BASE64URL_PATTERN.test(value.passwordHash) ||
+        typeof value.passwordSalt !== "string" ||
+        value.passwordSalt.length !== 22 ||
+        !BASE64URL_PATTERN.test(value.passwordSalt) ||
+        !isIsoDate(value.updatedAt))) ||
+    (value.state === "completed" && !isIsoDate(value.completedAt))
+  ) {
+    throw new AdminAuthError("invalid_recovery_token");
+  }
+
+  return value as RecoveryControl;
+}
+
 export function createAdminAuthService({
   store = createBlobAdminStore(),
   now = () => new Date(),
   readEnvironment = getNetlifyEnv
 }: AdminAuthServiceDependencies = {}): AdminAuthService {
-  async function createSession(userId: string, date: Date) {
+  async function createSession(user: Pick<AdminUser, "generation" | "id">, date: Date) {
     const sessionToken = createSessionToken();
     const tokenHash = hashSecret(sessionToken);
     const createdAt = date.toISOString();
     const session: AdminSession = {
       tokenHash,
-      userId,
+      userId: user.id,
+      generation: user.generation,
       createdAt,
       expiresAt: new Date(date.getTime() + SESSION_LIFETIME_MS).toISOString(),
       lastSeenAt: createdAt
@@ -272,7 +376,8 @@ export function createAdminAuthService({
         passwordAlgorithm: password.algorithm,
         createdAt: timestamp,
         updatedAt: timestamp,
-        active: true
+        active: true,
+        generation: 1
       };
       if (!(await store.createUserOnce(user))) throw new AdminAuthError("setup_closed");
       await store.setControl(SETUP_CONTROL_KEY, {
@@ -282,7 +387,7 @@ export function createAdminAuthService({
         completedAt: timestamp
       });
 
-      return { sessionToken: await createSession(user.id, date), user: publicUser(user) };
+      return { sessionToken: await createSession(user, date), user: publicUser(user) };
     },
 
     async login(input) {
@@ -314,7 +419,7 @@ export function createAdminAuthService({
       }
 
       await store.deleteAttempt(input.rateLimitKey);
-      return { sessionToken: await createSession(user.id, date), user: publicUser(user) };
+      return { sessionToken: await createSession(user, date), user: publicUser(user) };
     },
 
     async authenticate(sessionToken) {
@@ -332,7 +437,12 @@ export function createAdminAuthService({
         }
 
         const user = await store.getOnlyUser();
-        if (!user || !user.active || user.id !== session.userId) {
+        if (
+          !user ||
+          !user.active ||
+          user.id !== session.userId ||
+          user.generation !== session.generation
+        ) {
           await store.deleteSession(tokenHash);
           return null;
         }
@@ -360,26 +470,97 @@ export function createAdminAuthService({
       }
 
       const emailNormalized = normalizeEmail(input.email);
-      const user = await store.getUserByEmail(emailNormalized);
-      if (!user) throw new AdminAuthError("invalid_recovery_token");
-      const password = await createPasswordRecord(input.newPassword);
-      const date = currentDate(now);
-      const consumed = await store.setControlOnce(`recovery/${configuredFingerprint}`, {
-        consumedAt: date.toISOString(),
-        tokenFingerprint: configuredFingerprint
-      });
-      if (!consumed) throw new AdminAuthError("token_consumed");
+      const submittedPassword = requirePassword(input.newPassword);
+      const controlKey = `recovery/${configuredFingerprint}`;
+      let control = parseRecoveryControl(await store.getControl(controlKey));
+      if (control?.state === "completed") throw new AdminAuthError("token_consumed");
 
-      const updatedUser: AdminUser = {
-        ...user,
-        passwordHash: password.digest,
-        passwordSalt: password.salt,
-        passwordAlgorithm: password.algorithm,
-        updatedAt: date.toISOString()
-      };
-      await store.deleteSessionsForUser(user.id);
-      await store.updateUser(updatedUser);
-      return { user: publicUser(updatedUser) };
+      if (control === null) {
+        const user = await store.getUserByEmail(emailNormalized);
+        if (!user || user.generation === Number.MAX_SAFE_INTEGER) {
+          throw new AdminAuthError("invalid_recovery_token");
+        }
+        const password = await createPasswordRecord(submittedPassword);
+        const date = currentDate(now);
+        const timestamp = date.toISOString();
+        const pending: PendingRecoveryControl = {
+          state: "pending",
+          tokenFingerprint: configuredFingerprint,
+          operationId: randomUUID(),
+          userId: user.id,
+          emailNormalized,
+          targetGeneration: user.generation + 1,
+          passwordHash: password.digest,
+          passwordSalt: password.salt,
+          passwordAlgorithm: password.algorithm,
+          createdAt: timestamp,
+          updatedAt: timestamp
+        };
+        control = (await store.setControlOnce(controlKey, pending))
+          ? pending
+          : parseRecoveryControl(await store.getControl(controlKey));
+        if (control?.state === "completed") throw new AdminAuthError("token_consumed");
+      }
+
+      if (
+        control === null ||
+        control.state !== "pending" ||
+        !safeSecretEqual(control.tokenFingerprint, configuredFingerprint) ||
+        control.emailNormalized !== emailNormalized
+      ) {
+        throw new AdminAuthError("invalid_recovery_token");
+      }
+
+      let passwordMatches = false;
+      try {
+        passwordMatches = await verifyPassword(submittedPassword, {
+          algorithm: control.passwordAlgorithm,
+          digest: control.passwordHash,
+          salt: control.passwordSalt
+        });
+      } catch {
+        throw new AdminAuthError("invalid_recovery_token");
+      }
+      if (!passwordMatches) throw new AdminAuthError("invalid_recovery_token");
+
+      const currentUser = await store.getUserByEmail(emailNormalized);
+      if (!currentUser || currentUser.id !== control.userId) {
+        throw new AdminAuthError("invalid_recovery_token");
+      }
+
+      let recoveredUser = currentUser;
+      if (currentUser.generation === control.targetGeneration - 1) {
+        recoveredUser = {
+          ...currentUser,
+          generation: control.targetGeneration,
+          passwordHash: control.passwordHash,
+          passwordSalt: control.passwordSalt,
+          passwordAlgorithm: control.passwordAlgorithm,
+          updatedAt: currentDate(now).toISOString()
+        };
+        await store.updateUser(recoveredUser);
+      } else if (
+        currentUser.generation !== control.targetGeneration ||
+        currentUser.passwordHash !== control.passwordHash ||
+        currentUser.passwordSalt !== control.passwordSalt ||
+        currentUser.passwordAlgorithm !== control.passwordAlgorithm
+      ) {
+        throw new AdminAuthError("invalid_recovery_token");
+      }
+
+      await store.deleteSessionsForUser(control.userId);
+      const completedAt = currentDate(now).toISOString();
+      await store.setControl(controlKey, {
+        state: "completed",
+        tokenFingerprint: control.tokenFingerprint,
+        operationId: control.operationId,
+        userId: control.userId,
+        emailNormalized: control.emailNormalized,
+        targetGeneration: control.targetGeneration,
+        createdAt: control.createdAt,
+        completedAt
+      });
+      return { user: publicUser(recoveredUser) };
     }
   };
 }
