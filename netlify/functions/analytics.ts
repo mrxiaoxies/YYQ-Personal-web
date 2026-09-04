@@ -379,5 +379,5 @@ export default handler;
 
 export const config: Config = {
   method: ["GET", "POST", "OPTIONS"],
-  path: [VISIT_PATH, STATS_PATH]
+  path: ["/api/visit", "/api/stats"]
 };

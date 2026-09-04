@@ -330,5 +330,5 @@ export default handler;
 
 export const config: Config = {
   method: ["GET", "PUT", "POST", "OPTIONS"],
-  path: [PUBLIC_CONTENT_PATH, ADMIN_CONTENT_PATH, ADMIN_REVISIONS_PATH]
+  path: ["/api/site-content", "/api/admin/content", "/api/admin/revisions"]
 };
