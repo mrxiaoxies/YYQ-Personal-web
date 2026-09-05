@@ -131,7 +131,16 @@ export function isAdminHostedHere(
   try {
     const adminSiteUrl = resolveAdminSiteUrl(location, configuredUrl);
     if (!adminSiteUrl) return true;
-    return new URL(adminSiteUrl).origin === new URL(location.origin).origin;
+    const adminUrl = new URL(adminSiteUrl);
+    const currentUrl = new URL(location.origin);
+    if (adminUrl.origin === currentUrl.origin) return true;
+    return (
+      adminUrl.protocol === "https:" &&
+      currentUrl.protocol === "https:" &&
+      adminUrl.hostname.endsWith(".netlify.app") &&
+      currentUrl.port === "" &&
+      currentUrl.hostname.endsWith(`--${adminUrl.hostname}`)
+    );
   } catch {
     return false;
   }
@@ -150,9 +159,10 @@ function browserLocation(): AdminLocation {
 
 function requestDependencies(options: AdminApiOptions) {
   const location = options.location ?? browserLocation();
-  const adminSiteUrl = resolveAdminSiteUrl(location, options.configuredUrl ?? configuredAdminSiteUrl());
+  const configuredUrl = options.configuredUrl ?? configuredAdminSiteUrl();
+  const adminSiteUrl = resolveAdminSiteUrl(location, configuredUrl);
   return {
-    baseUrl: adminSiteUrl ? new URL(adminSiteUrl).origin : "",
+    baseUrl: adminSiteUrl && !isAdminHostedHere(location, configuredUrl) ? new URL(adminSiteUrl).origin : "",
     fetch: options.fetch ?? browserFetch()
   };
 }

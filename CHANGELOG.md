@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1] - 2026-09-05
+
+### Fixed
+
+- 修复 Netlify Draft Deploy 被误判为外部静态镜像的问题，后台预览不再跳转到正式站。
+- 管理员 API 在受信任的 Netlify Draft Deploy 上改为同源请求，确保初始化令牌由对应部署校验。
+
 ## [0.4.0] - 2026-09-03
 
 ### Added

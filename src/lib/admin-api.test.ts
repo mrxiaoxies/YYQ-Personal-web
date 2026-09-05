@@ -19,6 +19,7 @@ import {
 } from "./admin-api.ts";
 
 const netlifyLocation = new URL("https://yyq-web.netlify.app/admin");
+const netlifyDraftLocation = new URL("https://6a9b944aefff4820223ae87a--yyq-web.netlify.app/#admin");
 const pagesLocation = new URL("https://mrxiaoxies.github.io/YYQ-Personal-web/#admin");
 const user = { email: "admin@example.com", id: "admin-1", role: "admin" as const };
 const canonicalIso = "2026-08-31T00:00:00.000Z";
@@ -109,7 +110,25 @@ test("detects whether the current origin can host the administrator session", ()
   assert.equal(isAdminHostedHere(pagesLocation), false);
   assert.equal(isAdminHostedHere(netlifyLocation), true);
   assert.equal(isAdminHostedHere(netlifyLocation, "https://yyq-web.netlify.app/"), true);
+  assert.equal(isAdminHostedHere(netlifyDraftLocation, "https://yyq-web.netlify.app/#admin"), true);
+  assert.equal(
+    isAdminHostedHere(
+      new URL("https://6a9b944aefff4820223ae87a--yyq-web.netlify.app.attacker.example/#admin"),
+      "https://yyq-web.netlify.app/#admin"
+    ),
+    false
+  );
   assert.equal(isAdminHostedHere(netlifyLocation, "https://admin.example.com"), false);
+});
+
+test("keeps administrator API requests on the current Netlify deploy preview", async () => {
+  const { fetchImpl, requests } = createFetch(Response.json({ user }));
+
+  assert.deepEqual(
+    await getCurrentAdmin(options(fetchImpl, netlifyDraftLocation, "https://yyq-web.netlify.app/#admin")),
+    user
+  );
+  assert.equal(requests[0].url, "/api/admin/auth?action=me");
 });
 
 test("configured administrator links keep #admin while API requests use only the canonical origin", async () => {
