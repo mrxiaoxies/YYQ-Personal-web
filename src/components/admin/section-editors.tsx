@@ -1,4 +1,7 @@
-import { useId, type ReactElement } from "react";
+import { parseSiteContentUpdate } from "../../../shared/site-content-schema.ts";
+import { mergeRecentCodexProjects } from "../../../shared/recent-codex-projects.ts";
+import { legacyDefaultSiteContent } from "../../../shared/default-site-content.ts";
+import { useState, useId, type ReactElement } from "react";
 
 import type {
   CodexProject,
@@ -144,6 +147,7 @@ function newCodexProject(): CodexProject {
     updated: "日期未定",
     summary: "请填写项目简介。",
     milestones: ["新里程碑"],
+    operationSkills: [],
     next: "请填写下一步。",
     links: [],
     visibility: "暂未公开",
@@ -166,12 +170,26 @@ function StatusField({ value, onChange }: { value: CodexTimelineEntry["status"];
 }
 
 function CodexEditor({ value, onChange }: { value: CodexSection; onChange(value: CodexSection): void }) {
+  const [importError, setImportError] = useState("");
+  function importRecentSkills() {
+    try {
+      const merged = mergeRecentCodexProjects(value, legacyDefaultSiteContent.sections.codex);
+      parseSiteContentUpdate({ expectedVersion: legacyDefaultSiteContent.version, sections: { ...legacyDefaultSiteContent.sections, codex: merged } });
+      onChange(merged);
+      setImportError("");
+    } catch {
+      setImportError("合并未应用：请检查必填内容及列表上限（每组最多 60 项），调整后重试。当前草稿已保留。");
+    }
+  }
   const updateProject = (index: number, project: CodexProject) => onChange({ ...value, projects: replaceAt(value.projects, index, project) });
   return (
     <div className="admin-section-fields">
       <HeadingFields value={value} onChange={onChange} />
       <fieldset>
         <legend>项目列表</legend>
+        <p>可合并近期整理的项目与操作技能，检查下方内容后保存发布。已有自定义简介会保留。</p>
+        <button type="button" onClick={importRecentSkills}>合并近期项目与操作技能（2026.10）</button>
+        {importError && <p role="alert">{importError}</p>}
         {value.projects.map((project, projectIndex) => (
           <fieldset key={project.id} className="admin-editor-list-item">
             <legend>{itemLabel("项目", projectIndex)}</legend>
@@ -188,6 +206,13 @@ function CodexEditor({ value, onChange }: { value: CodexSection; onChange(value:
             <Field label="项目简介" multiline value={project.summary} onChange={(summary) => updateProject(projectIndex, { ...project, summary })} />
             <Field label="下一步" multiline value={project.next} onChange={(next) => updateProject(projectIndex, { ...project, next })} />
             <Field label="公开状态" value={project.visibility} onChange={(visibility) => updateProject(projectIndex, { ...project, visibility })} />
+            <PrimitiveList
+              label="操作技能"
+              items={project.operationSkills ?? []}
+              starter="新操作技能"
+              multiline
+              onChange={(operationSkills) => updateProject(projectIndex, { ...project, operationSkills })}
+            />
             <PrimitiveList
               label="里程碑"
               items={project.milestones}

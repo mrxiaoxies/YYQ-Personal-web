@@ -640,3 +640,28 @@ npm run verify:rag -- https://<CLI 返回的 Deploy-URL>
 - 已推送到 GitHub 对应分支
 - 已发布 `gh-pages` 并确认线上地址可访问
 - Netlify 生产部署已激活 AI Gateway，`/api/ask` 的同域、CORS 和限流验收通过
+
+### 2026.09 操作技能栏目更新（v0.4.2）
+
+- 项目数据新增可选 `operationSkills: string[]`；缺省按空列表读取，最多 60 条，每条 2000 字符。前台项目详情与后台「Codex 项目」共用该字段。
+- 更新清单在 `shared/recent-codex-projects.ts`；旧默认基线在 `shared/default-site-content.ts` 的 `legacyDefaultSiteContent`。设计、原型、已验证实践分别标记，记录核对日期不作为首次完成日期。
+- 已有 Blobs 内容不会因部署被自动覆盖。管理员进入「Codex 项目」，点击「合并近期操作技能（2026.09）」，检查草稿并保存发布。相同 ID 的旧默认标量可更新，管理员自定义值保留；技能和里程碑按文本去重，时间线及新项目按 ID 去重。重复点击不会重复新增，日常读取不会恢复已删除的项目。
+- 保存沿用 `PUT /api/admin/content`、`expectedVersion` 冲突检查与修订快照，公开读取沿用 `GET /api/site-content`。不要直接覆盖当前 Blob 绕过版本和修订。
+- 上线检查：后台编辑技能、增删排序后保存，刷新公开项目与后台确认相同内容；检查修订记录。接口 503 时仅能验证前台默认内容，不能声称动态保存完成。
+# RAG Wiki 维护（2026-10-05）
+
+## 项目进度与公开知识同步（v0.5.1）
+
+项目进度板共有 11 个项目；新增钓鱼游戏、3D 户型建模、磁盘诊断、视频话术文档项目。后台“合并近期项目与操作技能（2026.10）”采用幂等合并，保留自定义字段，合并后需要管理员保存才会更新已存在的 Blob 内容。本地默认内容更新不等于远程后台已保存。
+
+维护流程：`npm run knowledge:sync` 将已审核项目卡片整理为 `docs/knowledge/` 文档和公开条目；`npm run knowledge:check` 只读核验一致性；`npm run vectors:build` 重建向量；`npm run wiki:build` 重建页面；最后执行 `npm test`、`npm run evaluate:rag`、`npm run evaluate:wiki` 和 `npm run build`。这些命令分别服务于防止卡片/文档漂移、检索旧索引、Wiki 过期以及回归失败。
+
+自动测试、人工验收、计划任务必须分开描述。游戏的自动试验不算人工验收，原始转写不算完成话术整理，磁盘扫描不算已清理空间。说明文档只保存公开操作摘要，不包含源视频、家庭地址、私人磁盘目录或其他项目的秘密配置。
+
+- `npm run wiki:build`：依据公开知识条目编译 Markdown 和来源映射，资料更新后运行。
+- `npm run wiki:check`：只读校验生成产物；来源或正文漂移会中断构建。
+- `npm run test:wiki`：验证来源新鲜度、未知技能拒答、两侧项目证据和导航上限。
+- `npm run evaluate:wiki`：加载本地真实 BGE 查询向量，验证完整回答流程的证据规划；模型正文另由 Draft 人工和端到端检查验证。
+- `npm run verify:rag -- <Draft URL>`：对部署后的健康接口和问答接口进行真实验收。
+
+Wiki 首版是确定性编译器，不是 LLM 自动维护。来源仍展示为原始知识条目；公开项目时间不能推断学习开始日期。v0.5.1 汇总本次功能分支和此前后台内容改动；提交源码、生产部署、管理员合并并保存内容是三个独立步骤，需分别验证。

@@ -48,3 +48,16 @@ test("showcase allows safe public files and rejects traversal", () => {
   safe.sections.showcase.downloadHref = "files/../.env";
   assert.throws(() => parseSiteContentDocument(safe), /downloadHref/);
 });
+
+test("project operation skills round-trip and old documents remain readable", () => {
+  const document = structuredClone(defaultSiteContent);
+  Object.assign(document.sections.codex.projects[0], { operationSkills: ["接口验证", "版本发布"] });
+  const parsed = parseSiteContentDocument(document);
+  assert.deepEqual(parsed.sections.codex.projects[0].operationSkills, ["接口验证", "版本发布"]);
+  delete document.sections.codex.projects[0].operationSkills;
+  assert.deepEqual(parseSiteContentDocument(document).sections.codex.projects[0].operationSkills, []);
+  Object.assign(document.sections.codex.projects[0], { operationSkills: [""] });
+  assert.throws(() => parseSiteContentDocument(document), /operationSkills/);
+  Object.assign(document.sections.codex.projects[0], { operationSkills: Array(61).fill("技能") });
+  assert.throws(() => parseSiteContentDocument(document), /operationSkills/);
+});

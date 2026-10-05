@@ -10,7 +10,7 @@ test("知识结构会校验主题引用和公开工作月份", () => {
     document.entries.filter((entry) => entry.visibility === "public").map((entry) => entry.id)
   );
 
-  assert.equal(document.version, "1.3.0");
+  assert.equal(document.version, rawKnowledge.version);
   assert.deepEqual(
     document.topics.map((topic) => topic.id),
     ["testing-skills", "tools-technology", "work-experience", "ai-workflow", "personal-projects"]

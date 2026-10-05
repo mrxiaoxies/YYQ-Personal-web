@@ -488,6 +488,16 @@ function entrySupportsRequestedClaim(query: string, entry: KnowledgeEntry) {
   const claim = extractRequestedClaim(query);
   if (!claim || isBroadGenericClaim(claim)) return true;
 
+  // 指定项目的技术问法必须由该项目本身支持，不能因为另一个项目
+  // 提到了 Codex 等工具就转移来源。仅用项目名称/别名定位，不用共享技术标签。
+  const compactQuery = compactText(query);
+  const namedProjects = publicEntries.filter(candidate => candidate.category.includes("project")
+    && [candidate.title, ...candidate.aliases].some(value => {
+      const anchor = compactText(value);
+      return anchor.length >= 3 && !GENERIC_PROJECT_ANCHORS.has(anchor) && compactQuery.includes(anchor);
+    }));
+  if (namedProjects.length > 0 && !namedProjects.some(candidate => candidate.id === entry.id)) return false;
+
   const evidence = compactEntryEvidence.get(entry.id) ?? "";
   const segments = claim.split(/(?:和|与|及|、|还是|或)/).filter(Boolean);
   return segments.every((segment) => segmentSupportRatio(segment, evidence) >= 0.65);

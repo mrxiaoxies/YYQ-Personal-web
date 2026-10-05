@@ -97,7 +97,19 @@ async function main() {
   }
   requireTrace(isolated, "项目隔离");
   console.log("      通过：跨项目技术拼接被拒答，来源为空");
-  console.log("RAG 端到端验证通过。");
+  console.log("[6/7] Wiki 项目比较：两侧原始来源和页面组织均参与回答");
+  const comparison = await ask(base, "个人网站与微信 AI 好友有什么共同点和差异？", "Wiki 项目比较");
+  if (comparison.retrievalTrace?.decision !== "answered" ||
+      !comparison.sources?.some(source => source.title === "个人网站与 Codex 维护工作流") ||
+      !comparison.sources?.some(source => source.title === "微信 AI 好友本地工作流") ||
+      (comparison.retrievalTrace.wikiPageTitles?.length ?? 0) < 2) {
+    throw new Error("Wiki 比较缺少两侧证据或 Wiki 页面");
+  }
+  console.log("      通过：两侧公开资料参与比较");
+  console.log("[7/7] 缺失学习日期：项目时间不能被当成学习开始日期");
+  const learning = await ask(base, "你什么时候开始学习 RAG？", "学习日期", 20_000);
+  if (learning.retrievalTrace?.decision === "answered" || learning.sources?.length !== 0) throw new Error("无证据学习日期未拒答");
+  console.log("RAG + Wiki 端到端验证通过。");
 }
 
 main().catch((error) => {

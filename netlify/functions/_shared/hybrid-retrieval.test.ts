@@ -296,10 +296,10 @@ test("static hybrid metadata validates the packaged index without loading the mo
 
   assert.equal(metadata.dimensions, 512);
   assert.equal(metadata.fallbackReason, "none");
-  assert.equal(metadata.indexEntryCount, 16);
+  assert.equal(metadata.indexEntryCount, 24);
   assert.equal(metadata.indexTopicCount, 5);
   assert.equal(metadata.indexReady, true);
-  assert.equal(metadata.knowledgeVersion, "1.3.0");
+  assert.equal(metadata.knowledgeVersion, "1.4.0");
   assert.equal(metadata.mode, "hybrid");
   assert.equal(metadata.model, "bge-small-zh-v1.5");
 });

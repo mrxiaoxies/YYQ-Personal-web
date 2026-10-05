@@ -80,7 +80,8 @@ test("公开知识索引字段完整、ID 唯一且不包含联系方式形态",
 
   const autoEditing = knowledgeData.entries.find((entry) => entry.id === "project-auto-editing");
   const wechatAi = knowledgeData.entries.find((entry) => entry.id === "project-wechat-ai");
-  assert.match(autoEditing?.content ?? "", /任务搭建阶段/);
+  assert.match(autoEditing?.content ?? "", /FFmpeg/);
+  assert.match(autoEditing?.content ?? "", /验证剪映内打开与导出流程/);
   assert.match(wechatAi?.content ?? "", /等待真实微信通知完成端到端联调/);
   assert.match(wechatAi?.content ?? "", /自动发送保持关闭/);
 });

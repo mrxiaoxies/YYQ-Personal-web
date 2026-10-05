@@ -1,6 +1,7 @@
-import type { SiteContentDocument } from "./site-content-schema.ts";
+import { mergeRecentCodexProjects } from "./recent-codex-projects.ts";
+import { parseSiteContentDocument, type SiteContentDocument } from "./site-content-schema.ts";
 
-export const defaultSiteContent: SiteContentDocument = {
+export const legacyDefaultSiteContent: SiteContentDocument = {
   schemaVersion: 1,
   version: "builtin-0.3.1",
   updatedAt: "2026-08-13T00:00:00.000Z",
@@ -270,3 +271,14 @@ export const defaultSiteContent: SiteContentDocument = {
     }
   }
 };
+
+// Keep the old baseline for non-destructive imports into previously published documents.
+export const defaultSiteContent: SiteContentDocument = parseSiteContentDocument({
+  ...legacyDefaultSiteContent,
+  version: "builtin-0.5.1",
+  updatedAt: "2026-10-05T00:00:00.000Z",
+  sections: {
+    ...legacyDefaultSiteContent.sections,
+    codex: mergeRecentCodexProjects(legacyDefaultSiteContent.sections.codex, legacyDefaultSiteContent.sections.codex)
+  }
+});

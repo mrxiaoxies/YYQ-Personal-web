@@ -4,7 +4,7 @@
 
 ## 项目状态
 
-- 当前版本：`0.4.0`
+- 当前版本：`0.5.1`
 - GitHub 仓库：`https://github.com/mrxiaoxies/YYQ-Personal-web`
 - 版本记录：见 [CHANGELOG.md](./CHANGELOG.md)
 - 操作文档：见 [docs/OPERATIONS.md](./docs/OPERATIONS.md)
@@ -12,11 +12,14 @@
 
 ## 本版更新
 
-`0.4.0` 新增个人网站内容管理与安全的单管理员登录：
+`0.5.1` 汇总自 `0.4.1` 以来的项目进度、操作技能与 RAG + Wiki 更新：
 
-- `#admin` 管理界面可编辑首页、Codex、项目展示、技能、履历和联系六个栏目，保存即发布。
-- 管理员账号、会话、动态内容和最近 20 个内容修订由 Netlify Blobs 保存，支持一次性初始化、密码恢复和历史恢复。
-- GitHub Pages 继续作为只读公开镜像，从 Netlify 读取公开内容，并把管理员入口引导到 Netlify。
+- 项目详情与后台编辑器增加操作技能列表，支持排序、版本化保存和近期项目的幂等合并，保留管理员自定义内容。
+- 内置项目进度板更新为 11 个项目，新增钓鱼游戏、3D 户型建模、磁盘诊断和视频话术整理，并注明各项目待验证阶段。
+- 新增 11 份脱敏项目操作文档、24 条公开知识和 29 页确定性生成的 Wiki；项目比较回答检查双方原始证据，未知技能与缺失学习日期继续拒答。
+- 新增知识同步、Wiki 编译和来源一致性检查，构建前自动检查 Wiki 是否过期。
+
+此前已保存的 Netlify Blobs 内容不会因代码发布自动替换。管理员需要在「Codex 项目」点击「合并近期项目与操作技能（2026.10）」，检查草稿后保存发布。GitHub Pages 的公开内容也会优先读取 Netlify；生产部署和后台内容保存需要分别验收。
 
 ## 技术栈
 
@@ -71,7 +74,22 @@ npm run evaluate:rag
 npm test
 ```
 
-这条命令验证关键词/混合检索、降级、安全策略、HTTP 契约和健康接口，服务于在提交前发现逻辑回归；测试使用固定或合成向量，不产生真实模型费用。
+这条命令验证关键词/混合检索、降级、安全策略、HTTP 契约、后台内容与 Wiki 证据规划，服务于在提交前发现逻辑回归；测试使用固定或合成向量，不产生真实模型费用。
+
+## 项目资料与 Wiki 维护
+
+修改已审核项目进度后按顺序执行：
+
+```powershell
+npm run knowledge:sync
+npm run knowledge:check
+npm run vectors:build
+npm run wiki:build
+npm run wiki:check
+npm run evaluate:wiki
+```
+
+项目说明索引见 [docs/knowledge/README.md](./docs/knowledge/README.md)。`knowledge:sync` 同步项目文档与公开知识，`vectors:build` 重建语义索引，`wiki:build` 根据原始公开事实生成页面；两条 `check` 命令只读检查漂移。Wiki 只组织已检索通过的原始证据，不是 LLM 自动维护，也不推断学习开始日期。`evaluate:wiki` 使用真实本地查询向量和来源回显验证证据规划，不调用回答模型。
 
 要同时运行网页、Functions 和已绑定站点的 AI Gateway 环境，使用：
 
@@ -131,7 +149,7 @@ npm run preview
 ```powershell
 git status
 git add .
-git commit -m "chore: release v0.4.0"
+git commit -m "chore: release v0.5.1"
 git push
 ```
 

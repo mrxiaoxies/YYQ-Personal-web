@@ -957,3 +957,16 @@ test("schema parse failures and current blobs without etags fail closed", async 
     )
   );
 });
+
+test("project skills persist, reorder and delete through versioned storage", async () => {
+  const { store } = createHarness();
+  const initial = await store.getCurrent();
+  const sections = clone(initial.sections);
+  sections.codex.projects[0].operationSkills = ["检索检查", "接口验证"];
+  const saved = await store.save({ expectedVersion: initial.version, sections }, ACTOR);
+  assert.deepEqual((await store.getCurrent()).sections.codex.projects[0].operationSkills, ["检索检查", "接口验证"]);
+  const edited = clone(saved.document.sections);
+  edited.codex.projects[0].operationSkills = ["接口验证"];
+  await store.save({ expectedVersion: saved.document.version, sections: edited }, ACTOR);
+  assert.deepEqual((await store.getCurrent()).sections.codex.projects[0].operationSkills, ["接口验证"]);
+});

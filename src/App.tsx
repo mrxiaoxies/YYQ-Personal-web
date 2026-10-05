@@ -1330,6 +1330,16 @@ function PublicSiteApp({ appView }: { appView: PublicAppView }) {
               <p className="mt-4 leading-relaxed text-white">
                 {project.summary}
               </p>
+              {(project.operationSkills ?? []).length > 0 && (
+                <div className="mt-7">
+                  <p className="text-xs font-semibold tracking-[0.2em] text-forest-muted-foreground">操作技能</p>
+                  <ul className="mt-3 flex flex-wrap gap-2">
+                    {(project.operationSkills ?? []).map((skill, index) => (
+                      <li key={`${project.id}-skill-${index}`} className="rounded-xl border border-white/15 bg-white/[0.05] px-3 py-2 text-sm leading-relaxed text-foreground">{skill}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div className="mt-7">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest-muted-foreground">已完成里程碑</p>
                 <ul className="mt-3 grid gap-2 text-sm text-forest-muted-foreground">

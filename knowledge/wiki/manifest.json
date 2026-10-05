@@ -1,0 +1,1012 @@
+{
+  "schemaVersion": 1,
+  "knowledgeVersion": "1.4.0",
+  "pages": [
+    {
+      "id": "profile-overview",
+      "title": "个人定位与能力概览",
+      "kind": "person",
+      "aliases": [
+        "个人介绍",
+        "自我介绍",
+        "介绍一下自己",
+        "你是谁",
+        "你是做什么工作的",
+        "技术方向",
+        "擅长什么",
+        "能力概览"
+      ],
+      "keywords": [
+        "软件测试",
+        "测试工程师",
+        "Linux",
+        "接口测试",
+        "数据验证",
+        "AI 工作流",
+        "职业定位"
+      ],
+      "summary": "杨烨齐的公开职业定位是软件测试工程师与 AI Workflow Builder。公开能力覆盖黑盒测试、灰盒与环境测试、接口与数据验证，以及 Codex 协作开发、提示词拆解和 AI 工作流梳理。",
+      "sourceEntryIds": [
+        "profile-overview"
+      ],
+      "relatedPageIds": [],
+      "sourceDigest": "9b08c7ad01464bfc271bc512ea0cccb0f2414f50ad82946339ce7f9863cdcfca"
+    },
+    {
+      "id": "skill-tools-overview",
+      "title": "技能与工具公开概览",
+      "kind": "skill",
+      "aliases": [
+        "你会哪些技能",
+        "你会什么技能",
+        "你掌握哪些技能",
+        "你会哪些工具",
+        "你掌握哪些工具",
+        "你常用哪些工具",
+        "你平时用什么工具",
+        "你平时用什么测试工具",
+        "平时用什么工具",
+        "平时用什么测试工具",
+        "测试工具有哪些",
+        "技能和工具有哪些",
+        "测试和工具",
+        "测试技能和工具",
+        "测试和工具有哪些",
+        "你有哪些测试技能和工具",
+        "你会哪些技能和工具",
+        "会哪些技能或者工具",
+        "技术栈是什么",
+        "说说你的技术栈",
+        "你的技术栈",
+        "软件测试能力有哪些",
+        "做测试会用哪些工具",
+        "有哪些技术能力",
+        "你都会什么"
+      ],
+      "keywords": [
+        "技能概览",
+        "工具清单",
+        "技术栈"
+      ],
+      "summary": "公开资料中可确认的能力包括：黑盒、冒烟、边界值、有效等价类、错误处理、UI、业务流程和弱网测试；接口与数据验证、日志定位、前端与后端问题辅助归因；Linux 客户环境搭建、灰盒、硬件与整机测试；Codex 协作开发、提示词拆解与优化以及 AI 工作流梳理。公开使用过的工具和技术包括 Postman、MySQL、前端控制台、Mobaxterm、Linux 指令、Notepad++、Excel、VMware、LoadRunner、jtop、stress、lsusb、Codex、Builder.io，以及个人项目中的 React、Vite、TypeScript、Tailwind CSS、FastAPI、GitHub Pages 和 Netlify。这里仅汇总公开工作或项目中的使用记录，不表示对每项工具均达到精通程度；具体细节以对应技能和项目条目为准。",
+      "sourceEntryIds": [
+        "skill-tools-overview"
+      ],
+      "relatedPageIds": [
+        "topic-tools-technology"
+      ],
+      "sourceDigest": "a0a59077fcebe85da58e1858a7820dab3d6c80cf97936333c81e80ed8937d671"
+    },
+    {
+      "id": "work-overview",
+      "title": "公开工作经历概览",
+      "kind": "timeline",
+      "aliases": [
+        "做过哪些工作",
+        "在哪些公司",
+        "现在在哪里工作",
+        "现在在哪家公司",
+        "最近一份工作",
+        "工作年限",
+        "工作时间线",
+        "公司和岗位",
+        "金融测试经历",
+        "职业履历",
+        "简历概览"
+      ],
+      "keywords": [
+        "工作经历",
+        "公司经历",
+        "职业经历",
+        "从业经历",
+        "当前公司",
+        "测试工程师"
+      ],
+      "summary": "公开工作经历依次包括：2018.01 至 2021.05 在江南造船集团担任软件测试工程师；2021.10 至 2022.07 在上海分众传媒担任项目工程师；2022.12 至 2024.01 在上海蓝涧科技担任研发测试；2024.05 至今在中电金信软件担任测试工程师。各公司的具体项目以对应项目资料为准。",
+      "sourceEntryIds": [
+        "work-overview"
+      ],
+      "relatedPageIds": [
+        "topic-work-experience"
+      ],
+      "sourceDigest": "c196f66ad46ffda3f97b1f96ec8b9eddfcad34da8d697371bf69cca2f75f941e"
+    },
+    {
+      "id": "work-cec-bank-platform",
+      "title": "银行客服大平台升级维护测试",
+      "kind": "project",
+      "aliases": [
+        "银行项目",
+        "银行客服系统",
+        "客服平台",
+        "接口联调",
+        "日志排查",
+        "AI 电话总结",
+        "电话总结",
+        "通话总结",
+        "通话总结功能",
+        "电话摘要功能"
+      ],
+      "keywords": [
+        "银行客服平台",
+        "平台升级",
+        "维护测试",
+        "Postman",
+        "接口测试",
+        "测试数据",
+        "日志定位",
+        "AI 电话总结"
+      ],
+      "summary": "在中电金信软件担任测试工程师，参与银行客服平台优化升级、业务流程更新和新功能协助测试，并参与 AI 对话平台的电话总结功能测试。可公开概括的工作方法包括使用 Postman 做接口测试、准备测试数据，以及根据日志定位问题原因；不公开客户名称、内部地址、字段、命令、日志原文或真实业务数据。",
+      "sourceEntryIds": [
+        "work-cec-bank-platform"
+      ],
+      "relatedPageIds": [
+        "topic-testing-skills",
+        "topic-tools-technology",
+        "topic-work-experience"
+      ],
+      "sourceDigest": "8efa71f156c9478eb01046b403d64a83e8fd42488939c7097c0bfa773ea881e6"
+    },
+    {
+      "id": "work-cec-data-disclosure",
+      "title": "数据披露双数据源与锁账测试",
+      "kind": "project",
+      "aliases": [
+        "双数据源项目",
+        "双库取数",
+        "多表关联",
+        "SQL 造数",
+        "账期锁定",
+        "锁账测试",
+        "报表取值",
+        "数据库测试"
+      ],
+      "keywords": [
+        "数据披露",
+        "双数据源",
+        "锁账",
+        "报表",
+        "MySQL",
+        "造数",
+        "多表联动",
+        "数据验证"
+      ],
+      "summary": "该项目验证报表生成时的取值方向、双数据源联动逻辑和锁账相关数据条件。公开的测试工作包括使用 MySQL 构造满足条件的数据，验证多表联动取值，并覆盖单逻辑和多逻辑组合。",
+      "sourceEntryIds": [
+        "work-cec-data-disclosure"
+      ],
+      "relatedPageIds": [
+        "topic-testing-skills",
+        "topic-work-experience"
+      ],
+      "sourceDigest": "7f0612a60522a8919ff255a04e044caf7c35242cef86a0ba673d1aeb9c2e3dc6"
+    },
+    {
+      "id": "work-cec-pension",
+      "title": "养老金系统管理测试",
+      "kind": "project",
+      "aliases": [
+        "养老金项目",
+        "养老金系统",
+        "退休金系统",
+        "文件流转测试",
+        "签发流程",
+        "金额对账",
+        "报表流程",
+        "上传签发下载"
+      ],
+      "keywords": [
+        "养老金",
+        "业务流程",
+        "文件上传",
+        "签发下载",
+        "报表生成",
+        "金额核对",
+        "数据库",
+        "数据验证"
+      ],
+      "summary": "该项目围绕养老金业务系统开展流程与数据验证。可公开概括的测试范围包括上传、签发、下载和报表生成流程、金额核对，以及结合数据库逻辑与前端字段进行验证；不公开个人或金融敏感细节、真实金额、字段或表结构。",
+      "sourceEntryIds": [
+        "work-cec-pension"
+      ],
+      "relatedPageIds": [
+        "topic-testing-skills",
+        "topic-work-experience"
+      ],
+      "sourceDigest": "361b220bed71b187eaff34b710c97078920af15ea22eff5883b7288eb87decb4"
+    },
+    {
+      "id": "work-lanjian-edge-ai",
+      "title": "自研边缘化 AI 工控机测试",
+      "kind": "project",
+      "aliases": [
+        "工控机项目",
+        "边缘计算设备",
+        "边缘 AI 设备",
+        "工控设备测试",
+        "USB 设备识别",
+        "客户环境搭建",
+        "硬件兼容",
+        "压力测试",
+        "哪个项目最能体现你的 Linux 环境经验"
+      ],
+      "keywords": [
+        "边缘 AI",
+        "工控机",
+        "Linux",
+        "环境搭建",
+        "NANO",
+        "烧录",
+        "依赖安装",
+        "硬件测试",
+        "整机测试",
+        "整机组装",
+        "USB",
+        "jtop",
+        "stress",
+        "lsusb"
+      ],
+      "summary": "在上海蓝涧科技担任研发测试，负责自研边缘化 AI 工控机的机器版本环境搭建、NANO 模块烧录、依赖安装、硬件测试和整机组装测试。公开使用过 Linux 客户环境搭建、jtop 与 stress 压力测试、lsusb 设备兼容识别，并通过脚本优化测试步骤。",
+      "sourceEntryIds": [
+        "work-lanjian-edge-ai"
+      ],
+      "relatedPageIds": [
+        "topic-testing-skills",
+        "topic-tools-technology",
+        "topic-work-experience"
+      ],
+      "sourceDigest": "654c240973996bd38494b96978b336e50acaeb8b3c8e5a290dc5424f56358716"
+    },
+    {
+      "id": "work-focusmedia-player",
+      "title": "广告机不同型号灰盒测试",
+      "kind": "project",
+      "aliases": [
+        "分众项目",
+        "广告设备",
+        "广告播放终端",
+        "数字广告屏",
+        "播放器测试",
+        "串口通信测试",
+        "LR 性能测试",
+        "直播推流"
+      ],
+      "keywords": [
+        "广告机",
+        "灰盒测试",
+        "APK",
+        "硬件变更",
+        "压力测试",
+        "直播流",
+        "串口指令",
+        "分辨率",
+        "VMware",
+        "Linux",
+        "LoadRunner"
+      ],
+      "summary": "在上海分众传媒担任项目工程师，测试不同型号广告机，覆盖功能、APK 问题、硬件增减影响、压力测试、直播流推送与指令识别。公开工作包括串口指令测试、配置和验证分辨率与显示关系、使用 VMware 搭建 Linux 测试环境，以及 LoadRunner 性能测试基础实践。",
+      "sourceEntryIds": [
+        "work-focusmedia-player"
+      ],
+      "relatedPageIds": [
+        "topic-testing-skills",
+        "topic-tools-technology",
+        "topic-work-experience"
+      ],
+      "sourceDigest": "f104f51f15d6b01dfbc346307eb5d4b9eba67f296daaa20940f38165e3a4f31c"
+    },
+    {
+      "id": "work-jiangnan-eagle-eye",
+      "title": "鹰眼系统摄像头测试",
+      "kind": "project",
+      "aliases": [
+        "摄像头项目",
+        "摄像头识别系统",
+        "视觉识别测试",
+        "识别流程",
+        "通知流程",
+        "前后端问题定位",
+        "缺陷跟踪"
+      ],
+      "keywords": [
+        "鹰眼系统",
+        "摄像头",
+        "人员识别",
+        "业务流程",
+        "Excel",
+        "测试用例",
+        "用例评审",
+        "Bug 跟踪",
+        "缺陷管理",
+        "前后端归因"
+      ],
+      "summary": "在江南造船集团担任软件测试工程师，参与鹰眼系统摄像头业务测试，验证识别、信息调取及通知等流程。使用 Excel 设计测试用例，参与用例评审与执行、Bug 跟踪提交，并辅助判断问题属于前端还是后端；不公开人员信息、内部规则或处理细节。",
+      "sourceEntryIds": [
+        "work-jiangnan-eagle-eye"
+      ],
+      "relatedPageIds": [
+        "topic-testing-skills",
+        "topic-work-experience"
+      ],
+      "sourceDigest": "ac4f1dfc38f9e2fec5b43344e1f1411d51a5389af948eb33ac4633a4507e9c7a"
+    },
+    {
+      "id": "work-jiangnan-hardware",
+      "title": "设备外壳与硬件结构测试",
+      "kind": "project",
+      "aliases": [
+        "外壳测试",
+        "设备机箱外壳",
+        "硬件结构",
+        "焊接项目",
+        "钣金焊接测试",
+        "密封测试"
+      ],
+      "keywords": [
+        "设备外壳",
+        "氩弧焊",
+        "图纸",
+        "钣金",
+        "硬件测试",
+        "密封性",
+        "温度",
+        "结构验证"
+      ],
+      "summary": "根据图纸设计参与设备外壳钣金焊接和硬件结构测试，提出外壳设计修改建议，并验证硬件密封性、温度和结构。",
+      "sourceEntryIds": [
+        "work-jiangnan-hardware"
+      ],
+      "relatedPageIds": [
+        "topic-testing-skills",
+        "topic-tools-technology",
+        "topic-work-experience"
+      ],
+      "sourceDigest": "490518c96a14977e633d67af72c5c513351e2c93a0fb0e4d5ae7a7b4a18a2fc1"
+    },
+    {
+      "id": "skill-testing-methods",
+      "title": "黑盒与业务流程测试能力",
+      "kind": "skill",
+      "aliases": [
+        "测试方法",
+        "怎么设计用例",
+        "测试用例编写",
+        "等价类划分",
+        "弱网环境测试",
+        "功能测试",
+        "测试类型",
+        "质量保障"
+      ],
+      "keywords": [
+        "黑盒测试",
+        "冒烟测试",
+        "边界值",
+        "有效等价类",
+        "等价类",
+        "错误处理",
+        "UI 测试",
+        "业务流程测试",
+        "弱网测试"
+      ],
+      "summary": "公开的黑盒测试能力包括冒烟测试、边界值、有效等价类、错误处理、UI 界面测试和业务流程测试；环境相关能力还包括弱网测试。网站公开提供一份标准格式测试用例作为测试设计证据。",
+      "sourceEntryIds": [
+        "skill-testing-methods"
+      ],
+      "relatedPageIds": [
+        "topic-testing-skills"
+      ],
+      "sourceDigest": "cff7b01f921a1db02e44f3e6c6464908a178f30a058a3dcff221351a1cbeeb0b"
+    },
+    {
+      "id": "skill-api-data-environment",
+      "title": "接口、数据与环境排查能力",
+      "kind": "skill",
+      "aliases": [
+        "接口能力",
+        "接口问题排查",
+        "接口返回异常排查",
+        "接口前后端归因",
+        "判断前端还是后端",
+        "数据库能力",
+        "SQL 查询",
+        "问题定位",
+        "日志分析",
+        "从哪里排查问题",
+        "你通常怎样定位测试问题",
+        "环境运维",
+        "环境系统测试",
+        "Linux 环境配置",
+        "你做过哪些环境系统测试",
+        "你有哪些数据验证经验",
+        "后端排查",
+        "测试技术栈"
+      ],
+      "keywords": [
+        "Postman",
+        "MySQL",
+        "增删改查",
+        "日志定位",
+        "前端控制台",
+        "Mobaxterm",
+        "Linux",
+        "Notepad++",
+        "环境搭建"
+      ],
+      "summary": "接口与数据方面公开使用 Postman、MySQL 增删改查、日志定位和前端控制台辅助判断；遇到接口返回异常时，会结合这些公开工具和线索排查原因，并辅助判断异常来自前端表现还是后端处理。灰盒与环境方面公开使用 Mobaxterm、Linux 指令、Notepad++ 配置修改，并参与客户环境搭建。",
+      "sourceEntryIds": [
+        "skill-api-data-environment"
+      ],
+      "relatedPageIds": [
+        "topic-testing-skills",
+        "topic-tools-technology"
+      ],
+      "sourceDigest": "d31e17d822dc5275d905ef3afb611360e8ce3e9c2c72b3b572e54a06c66451c2"
+    },
+    {
+      "id": "project-personal-site",
+      "title": "个人网站与 Codex 维护工作流",
+      "kind": "project",
+      "aliases": [
+        "这个网站",
+        "作品集网站",
+        "个人主页",
+        "网站怎么做的",
+        "网站技术栈",
+        "网站部署方式",
+        "网站发布流程",
+        "改代码到发布",
+        "发布稳定性",
+        "网站性能优化",
+        "Codex 协作",
+        "网站项目",
+        "前端项目",
+        "个人网站",
+        "网站维护"
+      ],
+      "keywords": [
+        "个人网站",
+        "React",
+        "Vite",
+        "TypeScript",
+        "Tailwind CSS",
+        "Codex",
+        "GitHub Pages",
+        "Netlify",
+        "移动端适配",
+        "性能优化",
+        "WebP",
+        "字体优化"
+      ],
+      "summary": "个人网站使用 Vite、React、TypeScript 和 Tailwind CSS 开发，并持续优化中。已完成四季滚动背景、液态玻璃面板、项目进度、简历模块、春夏秋冬掉落物和夏季萤火虫动效。项目建立了 GitHub 发布准备、版本记录、操作文档和 Codex 维护工作流；进行了移动端背景与可读性优化、WebP 背景压缩、按实际使用精简字体，并修复 GitHub Pages 静态资源路径。\n项目进度同步：使用 Codex 维护 React / TypeScript 个人网站，完成四季交互、移动端优化、版本发布，并接入管理员登录、栏目编辑、内容保存与修订恢复。\n当前阶段：后台管理已接入，持续优化中。已记录里程碑：四季背景切换；花瓣/绿叶/秋叶/雪花；萤火虫轨迹动效；移动端体验优化；首屏背景和字体资源压缩；管理员界面与栏目编辑接入；公开内容与管理员保存接口接入。操作经验：需求拆解与代码定位；React / TypeScript 页面维护；Git 版本管理与发布；GitHub Pages / Netlify 部署；前后端字段与接口验证；后台栏目管理与修订恢复；RAG + Wiki 资料维护与问答验证。待完成：持续补充操作案例，并验证线上内容存储与后台发布链路。。公开范围：已公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。",
+      "sourceEntryIds": [
+        "project-personal-site"
+      ],
+      "relatedPageIds": [
+        "topic-tools-technology",
+        "topic-ai-workflow",
+        "topic-personal-projects"
+      ],
+      "sourceDigest": "31ba20969cc1b410448bd9f6055b59b21a9956de32e37ef8360e3069c88f8447"
+    },
+    {
+      "id": "project-auto-editing",
+      "title": "自动剪辑工作流项目",
+      "kind": "project",
+      "aliases": [
+        "视频剪辑",
+        "剪辑项目",
+        "自动剪视频",
+        "自动化剪辑",
+        "成片流程",
+        "素材到成片流程",
+        "自动剪辑进度",
+        "做到哪一步",
+        "自动剪辑",
+        "口播成片"
+      ],
+      "keywords": [
+        "自动剪辑",
+        "素材导入",
+        "素材整理",
+        "脚本拆分",
+        "镜头拆分",
+        "片段筛选",
+        "字幕",
+        "封面",
+        "工作流",
+        "FFmpeg",
+        "旁白",
+        "竖屏"
+      ],
+      "summary": "分析剪映结构化草稿，使用 FFmpeg 完成竖屏口播视频的素材拼接、缩放裁切、字幕叠加与旁白混音，并检查成片参数、音量和画面。\n当前阶段：口播成片流程已验证。已记录里程碑：明确素材导入与整理范围；梳理脚本与镜头拆分步骤；定义字幕与封面输出环节；完成竖屏口播成片生成；核验分辨率、帧率、音频与抽帧画面。操作经验：剪映草稿 JSON 结构分析；素材整理与片段拼接；竖屏缩放裁切；字幕图层与关键词强调；旁白混音与音量检测；成片参数校验与抽帧检查。待完成：继续整理可复用的剪辑风格规则，并验证剪映内打开与导出流程。。公开范围：暂未公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。",
+      "sourceEntryIds": [
+        "project-auto-editing"
+      ],
+      "relatedPageIds": [
+        "topic-ai-workflow",
+        "topic-personal-projects"
+      ],
+      "sourceDigest": "ae5fdb9f0c9eab2573423beea6106d50d12937beb6dd8638d6fa094c7d04dcde"
+    },
+    {
+      "id": "project-wechat-ai",
+      "title": "微信 AI 好友本地工作流",
+      "kind": "project",
+      "aliases": [
+        "微信机器人",
+        "微信助手",
+        "微信桌面助手",
+        "自动回复",
+        "PC 微信",
+        "AI 好友",
+        "微信消息监听",
+        "微信防误发",
+        "消息发错人",
+        "微信自动发送开关",
+        "微信端到端联调"
+      ],
+      "keywords": [
+        "微信 AI 好友",
+        "FastAPI",
+        "Windows 通知",
+        "微信窗口",
+        "剪贴板",
+        "草稿",
+        "风险拦截",
+        "自动监听",
+        "安全闸门",
+        "端到端联调"
+      ],
+      "summary": "PC 桌面微信 AI 好友的 FastAPI 本地后台已发布，PC-only 接入层原型已编写，包含通知、窗口、剪贴板、解析、输入与工作流模块。实现 Windows 通知与当前聊天复制双确认、微信窗口检测、非微信通知过滤、无抢鼠标交互和自动发送安全闸门。当前仍等待真实微信通知完成端到端联调，自动发送保持关闭，不能声称完整消息链路已经验证成功。",
+      "sourceEntryIds": [
+        "project-wechat-ai"
+      ],
+      "relatedPageIds": [
+        "topic-ai-workflow",
+        "topic-personal-projects"
+      ],
+      "sourceDigest": "b383c1a17aead7851b49fdae1da09d96333770e8c3039d1a72b1f9e5e46bf430"
+    },
+    {
+      "id": "skill-ai-workflow",
+      "title": "AI 工具与工作流能力",
+      "kind": "skill",
+      "aliases": [
+        "如何使用 AI",
+        "AI 工具使用",
+        "AI 辅助开发",
+        "AI 如何辅助工作",
+        "AI 经验",
+        "Codex 经验",
+        "Codex 帮助做项目",
+        "Codex 项目协作",
+        "提示词优化",
+        "效率提升",
+        "你怎样使用 AI 和 Codex 提升效率"
+      ],
+      "keywords": [
+        "Codex",
+        "Builder.io",
+        "提示词",
+        "AI 工作流",
+        "AI 辅助开发",
+        "协作开发",
+        "流程拆解",
+        "安全闸门"
+      ],
+      "summary": "公开的 AI 工具能力包括 Codex 协作开发、Builder.io 可视化编辑、提示词拆解与优化和 AI 工作流梳理。个人网站体现了用 Codex 维护代码、版本、构建和发布流程；微信 AI 好友项目体现了将 AI 能力放在双确认、风险拦截和自动发送安全闸门之后。",
+      "sourceEntryIds": [
+        "skill-ai-workflow"
+      ],
+      "relatedPageIds": [
+        "topic-tools-technology",
+        "topic-ai-workflow"
+      ],
+      "sourceDigest": "6e442e70489bfa417e0a58b8bcee5d5f63ece047a39ac1f41c8de1fcc593cc59"
+    },
+    {
+      "id": "project-rag-wiki",
+      "title": "RAG 知识库与问答",
+      "kind": "project",
+      "aliases": [
+        "RAG 知识库项目",
+        "Wiki 项目",
+        "经历助手",
+        "RAG Wiki 助手"
+      ],
+      "keywords": [
+        "RAG",
+        "Wiki",
+        "BGE",
+        "Embedding",
+        "混合检索"
+      ],
+      "summary": "个人网站已实现本地 BGE 混合检索、主题加权聚合和事实推导；新增 Wiki 来源编译、过期校验与多项目证据规划，v0.5.0 非生产问答验收通过。Wiki 为确定性编译，LLM 自动增量维护未实现；本地 Chroma 教学建库尚未验证。\n当前阶段：RAG + Wiki 首版已验证，非生产预览。已记录里程碑：网站 RAG 检索、问答与验证流程建立；本地 ingest / search 教学脚本整理；Python 虚拟环境创建与激活验证；v0.5.0 Wiki 首版与真实问答验收；437 项测试与 Draft 7/7 验收通过（当次记录）。操作经验：知识文档整理与元数据设计；文本切分与重叠片段检查；Embedding 模型与归一化一致性；关键词与向量混合检索；Top-K 来源与回答依据检查；问答回归与接口验证；Wiki Markdown 与 manifest 编译；来源摘要与过期页面校验；多项目查询与双方来源检查；未知能力拒答及事实推导边界。待完成：继续验证多项目问题，后续设计经审核的 LLM 增量整理；本地 Chroma 建库单独验证。。公开范围：网站实践已公开；本地原型学习中。这些记录体现 Codex 辅助实践，不表示每项技术均精通。",
+      "sourceEntryIds": [
+        "project-rag-wiki"
+      ],
+      "relatedPageIds": [
+        "topic-personal-projects"
+      ],
+      "sourceDigest": "15ceb1fdef6518a8860704dfff7a5bb5af5fe236a12143c2dc81a9f67bbb7c3e"
+    },
+    {
+      "id": "project-job-radar",
+      "title": "招聘岗位辅助分析",
+      "kind": "project",
+      "aliases": [
+        "招聘岗位辅助分析",
+        "招聘工具",
+        "求职工具",
+        "Job Radar"
+      ],
+      "keywords": [
+        "岗位筛选",
+        "刷新会话",
+        "浏览器扩展"
+      ],
+      "summary": "围绕 BOSS / 智联招聘设计岗位筛选工具，梳理简历匹配、公司信息核实、真实职位链接分析与用户确认的辅助投递流程，开发刷新会话接口及浏览器扩展对接。\n当前阶段：接口与扩展原型开发中。已记录里程碑：确认真实职位分析与辅助投递范围；实现刷新协议、校验与会话接口；编写扩展桥接原型。操作经验：招聘需求与筛选规则拆解；岗位事实、推断与待核实信息区分；刷新会话协议与数据校验；接口持久化与会话安全；浏览器扩展消息桥接原型。待完成：完成页面迁移、扩展联调与完整测试构建，验证真实岗位分析链路。。公开范围：原型暂未公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。",
+      "sourceEntryIds": [
+        "project-job-radar"
+      ],
+      "relatedPageIds": [
+        "topic-personal-projects"
+      ],
+      "sourceDigest": "883841cd9a24a678da1e9da48fdf4d35f4900888cee781fdeff80dc18f4649c3"
+    },
+    {
+      "id": "project-local-agent",
+      "title": "本地 Agent 工作流设计",
+      "kind": "project",
+      "aliases": [
+        "本地 Agent",
+        "本地执行器",
+        "Runner 项目"
+      ],
+      "keywords": [
+        "Agent",
+        "Runner",
+        "步骤事件"
+      ],
+      "summary": "梳理 Agent、Tool、Skill 与 RAG 的职责，设计连接云端任务和本地执行器的流程，让真实终端输出、步骤状态与操作结果可查看。\n当前阶段：架构设计与学习阶段。已记录里程碑：完成组件职责和执行边界梳理；整理终端日志与进度事件设计。操作经验：Agent / Tool / Skill / RAG 职责梳理；本地 Runner 架构设计；终端输出与步骤事件设计；云端和本地执行边界分析；安装与外部操作确认流程设计。待完成：实现最小本地执行器，验证一条命令从发起到终端输出的完整链路。。公开范围：设计记录。这些记录体现 Codex 辅助实践，不表示每项技术均精通。",
+      "sourceEntryIds": [
+        "project-local-agent"
+      ],
+      "relatedPageIds": [
+        "topic-personal-projects"
+      ],
+      "sourceDigest": "98aaffbd4314e740254b6ff8f048236aa1701416ab26b98d0e7245cb43ede93d"
+    },
+    {
+      "id": "project-windows-tools",
+      "title": "Windows 环境与工具维护",
+      "kind": "project",
+      "aliases": [
+        "Windows 工具维护",
+        "Notepad++ 安装",
+        "虚拟环境排错"
+      ],
+      "keywords": [
+        "PowerShell",
+        "Notepad++",
+        "Python",
+        "venv",
+        "SHA-256"
+      ],
+      "summary": "使用 Codex 辅助排查 PowerShell 与 Python 虚拟环境问题，完成指定目录的软件安装、官方安装包校验与重复安装清理，并检查保留程序的版本和路径。\n当前阶段：安装与排错流程已实践。已记录里程碑：定位虚拟环境缺失并验证创建激活；完成 Notepad++ 指定目录安装及校验；移除重复安装并验证保留副本。操作经验：PowerShell 路径与命令诊断；Python venv 创建与激活；执行策略与缺失文件原因区分；官方安装包与 SHA-256 校验；指定目录安装与版本检查；重复安装定位和定向清理。待完成：持续积累环境问题的原因、操作步骤与验证结果。。公开范围：操作经验总结。这些记录体现 Codex 辅助实践，不表示每项技术均精通。",
+      "sourceEntryIds": [
+        "project-windows-tools"
+      ],
+      "relatedPageIds": [
+        "topic-personal-projects"
+      ],
+      "sourceDigest": "809b92ccbca4a80acee0bba77b3074764b68e00b07fb64fb75db444bd70ce728"
+    },
+    {
+      "id": "project-slow-jigging",
+      "title": "Slow Jigging 钓鱼游戏",
+      "kind": "project",
+      "aliases": [
+        "Slow Jigging",
+        "钓鱼游戏",
+        "游戏开发项目"
+      ],
+      "keywords": [
+        "Unity",
+        "C#",
+        "钓鱼",
+        "状态机",
+        "A/B",
+        "CSV"
+      ],
+      "summary": "使用 Unity 2022.3 与 C# 开发 Windows 钓鱼原型，完成精准提竿和稳定收线、鱼获尺寸与模型、A/B 手感参数和本地试玩记录。17 项规则测试、20 次自动捕获及失败/取消记录已验证，真人手感和联机尚未验证。\n当前阶段：v0.5.0 参数对比原型，待真人试玩。已记录里程碑：v0.5.0 Windows 原型构建；17 项规则测试通过；A/B 各 10 次自动捕获及失败、取消记录验证。操作经验：C# 钓鱼状态机与规则测试；Unity Windows 构建与运行日志检查；程序音效与中文交互反馈；鱼获尺寸与旋转特写；A/B 参数对比与配置隔离；自动样本和真人试玩 CSV 分开记录。待完成：收集三位玩家独立试玩反馈，继续验证双客户端移动与抛竿同步；Steam 联机未完成。。公开范围：公开开发概括，构建暂未公开下载。这些记录体现 Codex 辅助实践，不表示每项技术均精通。",
+      "sourceEntryIds": [
+        "project-slow-jigging"
+      ],
+      "relatedPageIds": [
+        "topic-personal-projects"
+      ],
+      "sourceDigest": "cf972b2d8313d431cc7ebad7754d6c417c01f7d12455e4c3d33f82f3effe0499"
+    },
+    {
+      "id": "project-3d-floorplan",
+      "title": "3D 户型建模与方案迭代",
+      "kind": "project",
+      "aliases": [
+        "3D 户型",
+        "户型建模",
+        "户型图项目"
+      ],
+      "keywords": [
+        "CAD",
+        "SketchUp",
+        "3D",
+        "吊顶"
+      ],
+      "summary": "围绕 CAD 户型到 3D 模型开展方案迭代，核对 SketchUp 模型中的吊顶、梁边单眼皮、窗帘槽和灯位，保存 V39/V40 模型并检查效果。只公开建模操作，不公开住宅布局与尺寸。\n当前阶段：V40 模型已保存，吊顶需求待确认。已记录里程碑：V39 薄竖边单眼皮修正；V40 梁边单眼皮连接天花板；保存新版模型并检查效果。操作经验：CAD 到 3D 模型方案梳理；SketchUp 模型版本迭代；吊顶、梁边与灯位核对；截图与模型交叉检查；实体与空心需求澄清。待完成：确认沙发吊顶是内部空心需求还是漏面问题，再修改；不视为最终装修验收。。公开范围：公开操作概括，户型文件不公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。",
+      "sourceEntryIds": [
+        "project-3d-floorplan"
+      ],
+      "relatedPageIds": [
+        "topic-personal-projects"
+      ],
+      "sourceDigest": "73008af062af8f0188be5f097555c98c3a6fa9e315cf2fad818fb7acf4a83079"
+    },
+    {
+      "id": "project-disk-audit",
+      "title": "Windows 磁盘空间诊断",
+      "kind": "project",
+      "aliases": [
+        "磁盘空间诊断",
+        "C盘清理",
+        "磁盘占用分析"
+      ],
+      "keywords": [
+        "磁盘诊断",
+        "只读扫描",
+        "缓存分类"
+      ],
+      "summary": "只读扫描 Windows 磁盘占用，区分应用、缓存、个人文件与系统组件，核对软件登记路径和实际目录。完成清理候选与处理边界分析，没有执行删除，也没有已释放空间的成果。\n当前阶段：只读占用分析已完成。已记录里程碑：目录占用分类和候选分析；识别残留安装记录与实际占用的区别。操作经验：PowerShell 文件占用统计；目录分类与重复计数辨识；访问失败及硬链接统计误差说明；登记路径与实际文件核对；缓存和个人资料清理边界判断。待完成：用户明确选择后再处理清理候选，分别验证目标和实际释放空间。。公开范围：公开诊断方法，个人目录明细不公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。",
+      "sourceEntryIds": [
+        "project-disk-audit"
+      ],
+      "relatedPageIds": [
+        "topic-personal-projects"
+      ],
+      "sourceDigest": "59d6eb2849b8f2a2b22759d9bbcc603ad8c49c846cdcfa0b4823e53644b8ab25"
+    },
+    {
+      "id": "project-document-workflow",
+      "title": "视频话术与文档整理",
+      "kind": "project",
+      "aliases": [
+        "视频话术整理",
+        "转写文档",
+        "视频转 Word"
+      ],
+      "keywords": [
+        "Word",
+        "转写",
+        "时间标记"
+      ],
+      "summary": "将视频话术整理为 Word 文档，按需求保留重复、口头语和互动并附时间标记。已生成 5 页原始转写版本，存在机器识别错字，尚未经逐字校对。\n当前阶段：带时间标记的转写文档已生成。已记录里程碑：生成 5 页带时间标记的原始转写文档；注明识别误差与待校对状态。操作经验：视频话术提取与版本整理；原始转写与精简文案分开保存；时间标记与 Word 输出；识别误差和校对状态说明。待完成：逐字校对识别内容，再生成适合使用场景的精简版本。。公开范围：公开流程总结，原视频与全文不公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。",
+      "sourceEntryIds": [
+        "project-document-workflow"
+      ],
+      "relatedPageIds": [
+        "topic-personal-projects"
+      ],
+      "sourceDigest": "d446052264e29c3a7d6fdc3107d74338006f9610b02deb2ad0d0a7351a67d9c9"
+    },
+    {
+      "id": "topic-testing-skills",
+      "title": "测试技能公开概括",
+      "kind": "skill",
+      "aliases": [
+        "测试",
+        "测试技能",
+        "测试能力",
+        "软件测试",
+        "软件测试经验",
+        "测试经验"
+      ],
+      "keywords": [
+        "测试",
+        "测试技能",
+        "测试能力",
+        "软件测试",
+        "软件测试经验",
+        "测试经验"
+      ],
+      "summary": "银行客服大平台升级维护测试：在中电金信软件担任测试工程师，参与银行客服平台优化升级、业务流程更新和新功能协助测试，并参与 AI 对话平台的电话总结功能测试。可公开概括的工作方法包括使用 Postman 做接口测试、准备测试数据，以及根据日志定位问题原因；不公开客户名称、内部地址、字段、命令、日志原文或真实业务数据。\n数据披露双数据源与锁账测试：该项目验证报表生成时的取值方向、双数据源联动逻辑和锁账相关数据条件。公开的测试工作包括使用 MySQL 构造满足条件的数据，验证多表联动取值，并覆盖单逻辑和多逻辑组合。\n养老金系统管理测试：该项目围绕养老金业务系统开展流程与数据验证。可公开概括的测试范围包括上传、签发、下载和报表生成流程、金额核对，以及结合数据库逻辑与前端字段进行验证；不公开个人或金融敏感细节、真实金额、字段或表结构。\n自研边缘化 AI 工控机测试：在上海蓝涧科技担任研发测试，负责自研边缘化 AI 工控机的机器版本环境搭建、NANO 模块烧录、依赖安装、硬件测试和整机组装测试。公开使用过 Linux 客户环境搭建、jtop 与 stress 压力测试、lsusb 设备兼容识别，并通过脚本优化测试步骤。\n广告机不同型号灰盒测试：在上海分众传媒担任项目工程师，测试不同型号广告机，覆盖功能、APK 问题、硬件增减影响、压力测试、直播流推送与指令识别。公开工作包括串口指令测试、配置和验证分辨率与显示关系、使用 VMware 搭建 Linux 测试环境，以及 LoadRunner 性能测试基础实践。\n鹰眼系统摄像头测试：在江南造船集团担任软件测试工程师，参与鹰眼系统摄像头业务测试，验证识别、信息调取及通知等流程。使用 Excel 设计测试用例，参与用例评审与执行、Bug 跟踪提交，并辅助判断问题属于前端还是后端；不公开人员信息、内部规则或处理细节。\n设备外壳与硬件结构测试：根据图纸设计参与设备外壳钣金焊接和硬件结构测试，提出外壳设计修改建议，并验证硬件密封性、温度和结构。\n黑盒与业务流程测试能力：公开的黑盒测试能力包括冒烟测试、边界值、有效等价类、错误处理、UI 界面测试和业务流程测试；环境相关能力还包括弱网测试。网站公开提供一份标准格式测试用例作为测试设计证据。\n接口、数据与环境排查能力：接口与数据方面公开使用 Postman、MySQL 增删改查、日志定位和前端控制台辅助判断；遇到接口返回异常时，会结合这些公开工具和线索排查原因，并辅助判断异常来自前端表现还是后端处理。灰盒与环境方面公开使用 Mobaxterm、Linux 指令、Notepad++ 配置修改，并参与客户环境搭建。",
+      "sourceEntryIds": [
+        "work-cec-bank-platform",
+        "work-cec-data-disclosure",
+        "work-cec-pension",
+        "work-lanjian-edge-ai",
+        "work-focusmedia-player",
+        "work-jiangnan-eagle-eye",
+        "work-jiangnan-hardware",
+        "skill-testing-methods",
+        "skill-api-data-environment"
+      ],
+      "relatedPageIds": [
+        "work-cec-bank-platform",
+        "work-cec-data-disclosure",
+        "work-cec-pension",
+        "work-lanjian-edge-ai",
+        "work-focusmedia-player",
+        "work-jiangnan-eagle-eye",
+        "work-jiangnan-hardware",
+        "skill-testing-methods",
+        "skill-api-data-environment"
+      ],
+      "sourceDigest": "df2074da7a3854d23de3b4c5831a5a83375577cd20511c9875fa91ea6e9ddd4c"
+    },
+    {
+      "id": "topic-tools-technology",
+      "title": "工具与技术公开概括",
+      "kind": "skill",
+      "aliases": [
+        "工具",
+        "测试工具",
+        "技术",
+        "技术栈",
+        "开发工具"
+      ],
+      "keywords": [
+        "工具",
+        "测试工具",
+        "技术",
+        "技术栈",
+        "开发工具"
+      ],
+      "summary": "技能与工具公开概览：公开资料中可确认的能力包括：黑盒、冒烟、边界值、有效等价类、错误处理、UI、业务流程和弱网测试；接口与数据验证、日志定位、前端与后端问题辅助归因；Linux 客户环境搭建、灰盒、硬件与整机测试；Codex 协作开发、提示词拆解与优化以及 AI 工作流梳理。公开使用过的工具和技术包括 Postman、MySQL、前端控制台、Mobaxterm、Linux 指令、Notepad++、Excel、VMware、LoadRunner、jtop、stress、lsusb、Codex、Builder.io，以及个人项目中的 React、Vite、TypeScript、Tailwind CSS、FastAPI、GitHub Pages 和 Netlify。这里仅汇总公开工作或项目中的使用记录，不表示对每项工具均达到精通程度；具体细节以对应技能和项目条目为准。\n银行客服大平台升级维护测试：在中电金信软件担任测试工程师，参与银行客服平台优化升级、业务流程更新和新功能协助测试，并参与 AI 对话平台的电话总结功能测试。可公开概括的工作方法包括使用 Postman 做接口测试、准备测试数据，以及根据日志定位问题原因；不公开客户名称、内部地址、字段、命令、日志原文或真实业务数据。\n自研边缘化 AI 工控机测试：在上海蓝涧科技担任研发测试，负责自研边缘化 AI 工控机的机器版本环境搭建、NANO 模块烧录、依赖安装、硬件测试和整机组装测试。公开使用过 Linux 客户环境搭建、jtop 与 stress 压力测试、lsusb 设备兼容识别，并通过脚本优化测试步骤。\n广告机不同型号灰盒测试：在上海分众传媒担任项目工程师，测试不同型号广告机，覆盖功能、APK 问题、硬件增减影响、压力测试、直播流推送与指令识别。公开工作包括串口指令测试、配置和验证分辨率与显示关系、使用 VMware 搭建 Linux 测试环境，以及 LoadRunner 性能测试基础实践。\n设备外壳与硬件结构测试：根据图纸设计参与设备外壳钣金焊接和硬件结构测试，提出外壳设计修改建议，并验证硬件密封性、温度和结构。\n接口、数据与环境排查能力：接口与数据方面公开使用 Postman、MySQL 增删改查、日志定位和前端控制台辅助判断；遇到接口返回异常时，会结合这些公开工具和线索排查原因，并辅助判断异常来自前端表现还是后端处理。灰盒与环境方面公开使用 Mobaxterm、Linux 指令、Notepad++ 配置修改，并参与客户环境搭建。\n个人网站与 Codex 维护工作流：个人网站使用 Vite、React、TypeScript 和 Tailwind CSS 开发，并持续优化中。已完成四季滚动背景、液态玻璃面板、项目进度、简历模块、春夏秋冬掉落物和夏季萤火虫动效。项目建立了 GitHub 发布准备、版本记录、操作文档和 Codex 维护工作流；进行了移动端背景与可读性优化、WebP 背景压缩、按实际使用精简字体，并修复 GitHub Pages 静态资源路径。\n项目进度同步：使用 Codex 维护 React / TypeScript 个人网站，完成四季交互、移动端优化、版本发布，并接入管理员登录、栏目编辑、内容保存与修订恢复。\n当前阶段：后台管理已接入，持续优化中。已记录里程碑：四季背景切换；花瓣/绿叶/秋叶/雪花；萤火虫轨迹动效；移动端体验优化；首屏背景和字体资源压缩；管理员界面与栏目编辑接入；公开内容与管理员保存接口接入。操作经验：需求拆解与代码定位；React / TypeScript 页面维护；Git 版本管理与发布；GitHub Pages / Netlify 部署；前后端字段与接口验证；后台栏目管理与修订恢复；RAG + Wiki 资料维护与问答验证。待完成：持续补充操作案例，并验证线上内容存储与后台发布链路。。公开范围：已公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。\nAI 工具与工作流能力：公开的 AI 工具能力包括 Codex 协作开发、Builder.io 可视化编辑、提示词拆解与优化和 AI 工作流梳理。个人网站体现了用 Codex 维护代码、版本、构建和发布流程；微信 AI 好友项目体现了将 AI 能力放在双确认、风险拦截和自动发送安全闸门之后。",
+      "sourceEntryIds": [
+        "skill-tools-overview",
+        "work-cec-bank-platform",
+        "work-lanjian-edge-ai",
+        "work-focusmedia-player",
+        "work-jiangnan-hardware",
+        "skill-api-data-environment",
+        "project-personal-site",
+        "skill-ai-workflow"
+      ],
+      "relatedPageIds": [
+        "skill-tools-overview",
+        "work-cec-bank-platform",
+        "work-lanjian-edge-ai",
+        "work-focusmedia-player",
+        "work-jiangnan-hardware",
+        "skill-api-data-environment",
+        "project-personal-site",
+        "skill-ai-workflow"
+      ],
+      "sourceDigest": "ac1ca1a6d9814396314bbb921b315bd25c063eec1160902de2a7a8678ac483ab"
+    },
+    {
+      "id": "topic-work-experience",
+      "title": "工作经验公开概括",
+      "kind": "timeline",
+      "aliases": [
+        "工作",
+        "工作经验",
+        "测试工作经验",
+        "从业经历",
+        "职业经历",
+        "公司经历"
+      ],
+      "keywords": [
+        "工作",
+        "工作经验",
+        "测试工作经验",
+        "从业经历",
+        "职业经历",
+        "公司经历"
+      ],
+      "summary": "公开工作经历概览：公开工作经历依次包括：2018.01 至 2021.05 在江南造船集团担任软件测试工程师；2021.10 至 2022.07 在上海分众传媒担任项目工程师；2022.12 至 2024.01 在上海蓝涧科技担任研发测试；2024.05 至今在中电金信软件担任测试工程师。各公司的具体项目以对应项目资料为准。\n银行客服大平台升级维护测试：在中电金信软件担任测试工程师，参与银行客服平台优化升级、业务流程更新和新功能协助测试，并参与 AI 对话平台的电话总结功能测试。可公开概括的工作方法包括使用 Postman 做接口测试、准备测试数据，以及根据日志定位问题原因；不公开客户名称、内部地址、字段、命令、日志原文或真实业务数据。\n数据披露双数据源与锁账测试：该项目验证报表生成时的取值方向、双数据源联动逻辑和锁账相关数据条件。公开的测试工作包括使用 MySQL 构造满足条件的数据，验证多表联动取值，并覆盖单逻辑和多逻辑组合。\n养老金系统管理测试：该项目围绕养老金业务系统开展流程与数据验证。可公开概括的测试范围包括上传、签发、下载和报表生成流程、金额核对，以及结合数据库逻辑与前端字段进行验证；不公开个人或金融敏感细节、真实金额、字段或表结构。\n自研边缘化 AI 工控机测试：在上海蓝涧科技担任研发测试，负责自研边缘化 AI 工控机的机器版本环境搭建、NANO 模块烧录、依赖安装、硬件测试和整机组装测试。公开使用过 Linux 客户环境搭建、jtop 与 stress 压力测试、lsusb 设备兼容识别，并通过脚本优化测试步骤。\n广告机不同型号灰盒测试：在上海分众传媒担任项目工程师，测试不同型号广告机，覆盖功能、APK 问题、硬件增减影响、压力测试、直播流推送与指令识别。公开工作包括串口指令测试、配置和验证分辨率与显示关系、使用 VMware 搭建 Linux 测试环境，以及 LoadRunner 性能测试基础实践。\n鹰眼系统摄像头测试：在江南造船集团担任软件测试工程师，参与鹰眼系统摄像头业务测试，验证识别、信息调取及通知等流程。使用 Excel 设计测试用例，参与用例评审与执行、Bug 跟踪提交，并辅助判断问题属于前端还是后端；不公开人员信息、内部规则或处理细节。\n设备外壳与硬件结构测试：根据图纸设计参与设备外壳钣金焊接和硬件结构测试，提出外壳设计修改建议，并验证硬件密封性、温度和结构。",
+      "sourceEntryIds": [
+        "work-overview",
+        "work-cec-bank-platform",
+        "work-cec-data-disclosure",
+        "work-cec-pension",
+        "work-lanjian-edge-ai",
+        "work-focusmedia-player",
+        "work-jiangnan-eagle-eye",
+        "work-jiangnan-hardware"
+      ],
+      "relatedPageIds": [
+        "work-overview",
+        "work-cec-bank-platform",
+        "work-cec-data-disclosure",
+        "work-cec-pension",
+        "work-lanjian-edge-ai",
+        "work-focusmedia-player",
+        "work-jiangnan-eagle-eye",
+        "work-jiangnan-hardware"
+      ],
+      "sourceDigest": "da451e570881a9b34ce55eedf8e1ea367a01e0a6e148d6b7fd1c1d01ae3e438d"
+    },
+    {
+      "id": "topic-ai-workflow",
+      "title": "AI 工作流公开概括",
+      "kind": "skill",
+      "aliases": [
+        "AI",
+        "AI 工作流",
+        "Codex",
+        "Codex 使用经验",
+        "人工智能工具",
+        "人工智能工具经验"
+      ],
+      "keywords": [
+        "AI",
+        "AI 工作流",
+        "Codex",
+        "Codex 使用经验",
+        "人工智能工具",
+        "人工智能工具经验"
+      ],
+      "summary": "个人网站与 Codex 维护工作流：个人网站使用 Vite、React、TypeScript 和 Tailwind CSS 开发，并持续优化中。已完成四季滚动背景、液态玻璃面板、项目进度、简历模块、春夏秋冬掉落物和夏季萤火虫动效。项目建立了 GitHub 发布准备、版本记录、操作文档和 Codex 维护工作流；进行了移动端背景与可读性优化、WebP 背景压缩、按实际使用精简字体，并修复 GitHub Pages 静态资源路径。\n项目进度同步：使用 Codex 维护 React / TypeScript 个人网站，完成四季交互、移动端优化、版本发布，并接入管理员登录、栏目编辑、内容保存与修订恢复。\n当前阶段：后台管理已接入，持续优化中。已记录里程碑：四季背景切换；花瓣/绿叶/秋叶/雪花；萤火虫轨迹动效；移动端体验优化；首屏背景和字体资源压缩；管理员界面与栏目编辑接入；公开内容与管理员保存接口接入。操作经验：需求拆解与代码定位；React / TypeScript 页面维护；Git 版本管理与发布；GitHub Pages / Netlify 部署；前后端字段与接口验证；后台栏目管理与修订恢复；RAG + Wiki 资料维护与问答验证。待完成：持续补充操作案例，并验证线上内容存储与后台发布链路。。公开范围：已公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。\n自动剪辑工作流项目：分析剪映结构化草稿，使用 FFmpeg 完成竖屏口播视频的素材拼接、缩放裁切、字幕叠加与旁白混音，并检查成片参数、音量和画面。\n当前阶段：口播成片流程已验证。已记录里程碑：明确素材导入与整理范围；梳理脚本与镜头拆分步骤；定义字幕与封面输出环节；完成竖屏口播成片生成；核验分辨率、帧率、音频与抽帧画面。操作经验：剪映草稿 JSON 结构分析；素材整理与片段拼接；竖屏缩放裁切；字幕图层与关键词强调；旁白混音与音量检测；成片参数校验与抽帧检查。待完成：继续整理可复用的剪辑风格规则，并验证剪映内打开与导出流程。。公开范围：暂未公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。\n微信 AI 好友本地工作流：PC 桌面微信 AI 好友的 FastAPI 本地后台已发布，PC-only 接入层原型已编写，包含通知、窗口、剪贴板、解析、输入与工作流模块。实现 Windows 通知与当前聊天复制双确认、微信窗口检测、非微信通知过滤、无抢鼠标交互和自动发送安全闸门。当前仍等待真实微信通知完成端到端联调，自动发送保持关闭，不能声称完整消息链路已经验证成功。\nAI 工具与工作流能力：公开的 AI 工具能力包括 Codex 协作开发、Builder.io 可视化编辑、提示词拆解与优化和 AI 工作流梳理。个人网站体现了用 Codex 维护代码、版本、构建和发布流程；微信 AI 好友项目体现了将 AI 能力放在双确认、风险拦截和自动发送安全闸门之后。",
+      "sourceEntryIds": [
+        "project-personal-site",
+        "project-auto-editing",
+        "project-wechat-ai",
+        "skill-ai-workflow"
+      ],
+      "relatedPageIds": [
+        "project-personal-site",
+        "project-auto-editing",
+        "project-wechat-ai",
+        "skill-ai-workflow"
+      ],
+      "sourceDigest": "2f73387950c56b5faee1b2e1fcc93bcc68b7a87a0c7fe72f9ce24b3d4dd24007"
+    },
+    {
+      "id": "topic-personal-projects",
+      "title": "个人项目公开概括",
+      "kind": "project",
+      "aliases": [
+        "个人项目",
+        "业余项目",
+        "作品",
+        "项目经历"
+      ],
+      "keywords": [
+        "个人项目",
+        "业余项目",
+        "作品",
+        "项目经历"
+      ],
+      "summary": "个人网站与 Codex 维护工作流：个人网站使用 Vite、React、TypeScript 和 Tailwind CSS 开发，并持续优化中。已完成四季滚动背景、液态玻璃面板、项目进度、简历模块、春夏秋冬掉落物和夏季萤火虫动效。项目建立了 GitHub 发布准备、版本记录、操作文档和 Codex 维护工作流；进行了移动端背景与可读性优化、WebP 背景压缩、按实际使用精简字体，并修复 GitHub Pages 静态资源路径。\n项目进度同步：使用 Codex 维护 React / TypeScript 个人网站，完成四季交互、移动端优化、版本发布，并接入管理员登录、栏目编辑、内容保存与修订恢复。\n当前阶段：后台管理已接入，持续优化中。已记录里程碑：四季背景切换；花瓣/绿叶/秋叶/雪花；萤火虫轨迹动效；移动端体验优化；首屏背景和字体资源压缩；管理员界面与栏目编辑接入；公开内容与管理员保存接口接入。操作经验：需求拆解与代码定位；React / TypeScript 页面维护；Git 版本管理与发布；GitHub Pages / Netlify 部署；前后端字段与接口验证；后台栏目管理与修订恢复；RAG + Wiki 资料维护与问答验证。待完成：持续补充操作案例，并验证线上内容存储与后台发布链路。。公开范围：已公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。\n自动剪辑工作流项目：分析剪映结构化草稿，使用 FFmpeg 完成竖屏口播视频的素材拼接、缩放裁切、字幕叠加与旁白混音，并检查成片参数、音量和画面。\n当前阶段：口播成片流程已验证。已记录里程碑：明确素材导入与整理范围；梳理脚本与镜头拆分步骤；定义字幕与封面输出环节；完成竖屏口播成片生成；核验分辨率、帧率、音频与抽帧画面。操作经验：剪映草稿 JSON 结构分析；素材整理与片段拼接；竖屏缩放裁切；字幕图层与关键词强调；旁白混音与音量检测；成片参数校验与抽帧检查。待完成：继续整理可复用的剪辑风格规则，并验证剪映内打开与导出流程。。公开范围：暂未公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。\n微信 AI 好友本地工作流：PC 桌面微信 AI 好友的 FastAPI 本地后台已发布，PC-only 接入层原型已编写，包含通知、窗口、剪贴板、解析、输入与工作流模块。实现 Windows 通知与当前聊天复制双确认、微信窗口检测、非微信通知过滤、无抢鼠标交互和自动发送安全闸门。当前仍等待真实微信通知完成端到端联调，自动发送保持关闭，不能声称完整消息链路已经验证成功。\nRAG 知识库与问答：个人网站已实现本地 BGE 混合检索、主题加权聚合和事实推导；新增 Wiki 来源编译、过期校验与多项目证据规划，v0.5.0 非生产问答验收通过。Wiki 为确定性编译，LLM 自动增量维护未实现；本地 Chroma 教学建库尚未验证。\n当前阶段：RAG + Wiki 首版已验证，非生产预览。已记录里程碑：网站 RAG 检索、问答与验证流程建立；本地 ingest / search 教学脚本整理；Python 虚拟环境创建与激活验证；v0.5.0 Wiki 首版与真实问答验收；437 项测试与 Draft 7/7 验收通过（当次记录）。操作经验：知识文档整理与元数据设计；文本切分与重叠片段检查；Embedding 模型与归一化一致性；关键词与向量混合检索；Top-K 来源与回答依据检查；问答回归与接口验证；Wiki Markdown 与 manifest 编译；来源摘要与过期页面校验；多项目查询与双方来源检查；未知能力拒答及事实推导边界。待完成：继续验证多项目问题，后续设计经审核的 LLM 增量整理；本地 Chroma 建库单独验证。。公开范围：网站实践已公开；本地原型学习中。这些记录体现 Codex 辅助实践，不表示每项技术均精通。\n招聘岗位辅助分析：围绕 BOSS / 智联招聘设计岗位筛选工具，梳理简历匹配、公司信息核实、真实职位链接分析与用户确认的辅助投递流程，开发刷新会话接口及浏览器扩展对接。\n当前阶段：接口与扩展原型开发中。已记录里程碑：确认真实职位分析与辅助投递范围；实现刷新协议、校验与会话接口；编写扩展桥接原型。操作经验：招聘需求与筛选规则拆解；岗位事实、推断与待核实信息区分；刷新会话协议与数据校验；接口持久化与会话安全；浏览器扩展消息桥接原型。待完成：完成页面迁移、扩展联调与完整测试构建，验证真实岗位分析链路。。公开范围：原型暂未公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。\n本地 Agent 工作流设计：梳理 Agent、Tool、Skill 与 RAG 的职责，设计连接云端任务和本地执行器的流程，让真实终端输出、步骤状态与操作结果可查看。\n当前阶段：架构设计与学习阶段。已记录里程碑：完成组件职责和执行边界梳理；整理终端日志与进度事件设计。操作经验：Agent / Tool / Skill / RAG 职责梳理；本地 Runner 架构设计；终端输出与步骤事件设计；云端和本地执行边界分析；安装与外部操作确认流程设计。待完成：实现最小本地执行器，验证一条命令从发起到终端输出的完整链路。。公开范围：设计记录。这些记录体现 Codex 辅助实践，不表示每项技术均精通。\nWindows 环境与工具维护：使用 Codex 辅助排查 PowerShell 与 Python 虚拟环境问题，完成指定目录的软件安装、官方安装包校验与重复安装清理，并检查保留程序的版本和路径。\n当前阶段：安装与排错流程已实践。已记录里程碑：定位虚拟环境缺失并验证创建激活；完成 Notepad++ 指定目录安装及校验；移除重复安装并验证保留副本。操作经验：PowerShell 路径与命令诊断；Python venv 创建与激活；执行策略与缺失文件原因区分；官方安装包与 SHA-256 校验；指定目录安装与版本检查；重复安装定位和定向清理。待完成：持续积累环境问题的原因、操作步骤与验证结果。。公开范围：操作经验总结。这些记录体现 Codex 辅助实践，不表示每项技术均精通。\nSlow Jigging 钓鱼游戏：使用 Unity 2022.3 与 C# 开发 Windows 钓鱼原型，完成精准提竿和稳定收线、鱼获尺寸与模型、A/B 手感参数和本地试玩记录。17 项规则测试、20 次自动捕获及失败/取消记录已验证，真人手感和联机尚未验证。\n当前阶段：v0.5.0 参数对比原型，待真人试玩。已记录里程碑：v0.5.0 Windows 原型构建；17 项规则测试通过；A/B 各 10 次自动捕获及失败、取消记录验证。操作经验：C# 钓鱼状态机与规则测试；Unity Windows 构建与运行日志检查；程序音效与中文交互反馈；鱼获尺寸与旋转特写；A/B 参数对比与配置隔离；自动样本和真人试玩 CSV 分开记录。待完成：收集三位玩家独立试玩反馈，继续验证双客户端移动与抛竿同步；Steam 联机未完成。。公开范围：公开开发概括，构建暂未公开下载。这些记录体现 Codex 辅助实践，不表示每项技术均精通。\n3D 户型建模与方案迭代：围绕 CAD 户型到 3D 模型开展方案迭代，核对 SketchUp 模型中的吊顶、梁边单眼皮、窗帘槽和灯位，保存 V39/V40 模型并检查效果。只公开建模操作，不公开住宅布局与尺寸。\n当前阶段：V40 模型已保存，吊顶需求待确认。已记录里程碑：V39 薄竖边单眼皮修正；V40 梁边单眼皮连接天花板；保存新版模型并检查效果。操作经验：CAD 到 3D 模型方案梳理；SketchUp 模型版本迭代；吊顶、梁边与灯位核对；截图与模型交叉检查；实体与空心需求澄清。待完成：确认沙发吊顶是内部空心需求还是漏面问题，再修改；不视为最终装修验收。。公开范围：公开操作概括，户型文件不公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。\nWindows 磁盘空间诊断：只读扫描 Windows 磁盘占用，区分应用、缓存、个人文件与系统组件，核对软件登记路径和实际目录。完成清理候选与处理边界分析，没有执行删除，也没有已释放空间的成果。\n当前阶段：只读占用分析已完成。已记录里程碑：目录占用分类和候选分析；识别残留安装记录与实际占用的区别。操作经验：PowerShell 文件占用统计；目录分类与重复计数辨识；访问失败及硬链接统计误差说明；登记路径与实际文件核对；缓存和个人资料清理边界判断。待完成：用户明确选择后再处理清理候选，分别验证目标和实际释放空间。。公开范围：公开诊断方法，个人目录明细不公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。\n视频话术与文档整理：将视频话术整理为 Word 文档，按需求保留重复、口头语和互动并附时间标记。已生成 5 页原始转写版本，存在机器识别错字，尚未经逐字校对。\n当前阶段：带时间标记的转写文档已生成。已记录里程碑：生成 5 页带时间标记的原始转写文档；注明识别误差与待校对状态。操作经验：视频话术提取与版本整理；原始转写与精简文案分开保存；时间标记与 Word 输出；识别误差和校对状态说明。待完成：逐字校对识别内容，再生成适合使用场景的精简版本。。公开范围：公开流程总结，原视频与全文不公开。这些记录体现 Codex 辅助实践，不表示每项技术均精通。",
+      "sourceEntryIds": [
+        "project-personal-site",
+        "project-auto-editing",
+        "project-wechat-ai",
+        "project-rag-wiki",
+        "project-job-radar",
+        "project-local-agent",
+        "project-windows-tools",
+        "project-slow-jigging",
+        "project-3d-floorplan",
+        "project-disk-audit",
+        "project-document-workflow"
+      ],
+      "relatedPageIds": [
+        "project-personal-site",
+        "project-auto-editing",
+        "project-wechat-ai",
+        "project-rag-wiki",
+        "project-job-radar",
+        "project-local-agent",
+        "project-windows-tools",
+        "project-slow-jigging",
+        "project-3d-floorplan",
+        "project-disk-audit",
+        "project-document-workflow"
+      ],
+      "sourceDigest": "654af1357e5b7b1f520383c5ffe6f9a0c63c57fc5f1d8467940ddbd1e5b176fc"
+    }
+  ]
+}

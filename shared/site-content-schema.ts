@@ -41,6 +41,7 @@ export type CodexProject = {
   updated: string;
   summary: string;
   milestones: string[];
+  operationSkills?: string[];
   next: string;
   links: ContentLink[];
   visibility: string;
@@ -240,7 +241,7 @@ function parseHomeSection(value: unknown): HomeSection {
 
 function parseCodexProject(value: unknown, index: number): CodexProject {
   const path = `sections.codex.projects[${index}]`;
-  const record = strictObject(value, path, ["id", "title", "stage", "updated", "summary", "milestones", "next", "links", "visibility", "timeline"]);
+  const record = strictObject(value, path, ["id", "title", "stage", "updated", "summary", "milestones", "operationSkills", "next", "links", "visibility", "timeline"]);
   return {
     id: stableId(record.id, `${path}.id`),
     title: requiredText(record.title, `${path}.title`, MAX_SHORT_TEXT),
@@ -248,6 +249,7 @@ function parseCodexProject(value: unknown, index: number): CodexProject {
     updated: requiredText(record.updated, `${path}.updated`, MAX_SHORT_TEXT),
     summary: requiredText(record.summary, `${path}.summary`),
     milestones: boundedArray(record.milestones, `${path}.milestones`, (item, milestoneIndex) => requiredText(item, `${path}.milestones[${milestoneIndex}]`, MAX_TEXT)),
+    operationSkills: boundedArray(record.operationSkills === undefined ? [] : record.operationSkills, `${path}.operationSkills`, (item, skillIndex) => requiredText(item, `${path}.operationSkills[${skillIndex}]`, MAX_TEXT)),
     next: requiredText(record.next, `${path}.next`),
     links: boundedArray(record.links, `${path}.links`, (item, linkIndex) => {
       const linkPath = `${path}.links[${linkIndex}]`;
