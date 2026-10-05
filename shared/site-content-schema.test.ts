@@ -1,13 +1,40 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { defaultSiteContent } from "./default-site-content.ts";
+import { defaultSiteContent, legacyDefaultSiteContent } from "./default-site-content.ts";
+import { mergeRecentCodexProjects } from "./recent-codex-projects.ts";
 import { parseSiteContentDocument, parseSiteContentUpdate } from "./site-content-schema.ts";
 
 test("built-in site content satisfies schema v1", () => {
   const parsed = parseSiteContentDocument(defaultSiteContent);
   assert.equal(parsed.schemaVersion, 1);
   assert.deepEqual(Object.keys(parsed.sections), ["home", "codex", "showcase", "skills", "resume", "contact"]);
+});
+
+test("browser merge validates eleven projects without the Node Buffer global", () => {
+  const current = structuredClone(legacyDefaultSiteContent);
+  current.sections.codex.projects[0].summary = "管理员自己的简介";
+  const merged = mergeRecentCodexProjects(current.sections.codex, legacyDefaultSiteContent.sections.codex);
+  const update = { expectedVersion: current.version, sections: { ...current.sections, codex: merged } };
+  const bufferDescriptor = Object.getOwnPropertyDescriptor(globalThis, "Buffer")!;
+  try {
+    Object.defineProperty(globalThis, "Buffer", { configurable: true, value: undefined });
+    const parsed = parseSiteContentUpdate(update);
+    assert.equal(parsed.sections.codex.projects.length, 11);
+    assert.equal(parsed.sections.codex.projects[0].summary, "管理员自己的简介");
+    assert.deepEqual(mergeRecentCodexProjects(parsed.sections.codex, legacyDefaultSiteContent.sections.codex), parsed.sections.codex);
+  } finally {
+    Object.defineProperty(globalThis, "Buffer", bufferDescriptor);
+  }
+});
+
+test("content update enforces its UTF-8 byte limit for multibyte project skills", () => {
+  const update = { expectedVersion: defaultSiteContent.version, sections: structuredClone(defaultSiteContent.sections) };
+  update.sections.codex.projects[0].operationSkills = Array(20).fill("汉".repeat(2_000));
+  const serialized = JSON.stringify(update);
+  assert.ok(serialized.length < 128 * 1024);
+  assert.ok(new TextEncoder().encode(serialized).byteLength > 128 * 1024);
+  assert.throws(() => parseSiteContentUpdate(update), /no larger than 131072 bytes/);
 });
 
 test("content update rejects unknown fields and unsafe targets", () => {

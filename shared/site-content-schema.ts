@@ -410,7 +410,7 @@ export function parseSiteContentUpdate(value: unknown): SiteContentUpdate {
   } catch {
     throw new TypeError("update must be JSON-serializable");
   }
-  if (serialized === undefined || Buffer.byteLength(serialized, "utf8") > MAX_DOCUMENT_BYTES) {
+  if (serialized === undefined || new TextEncoder().encode(serialized).byteLength > MAX_DOCUMENT_BYTES) {
     throw new TypeError(`update must be no larger than ${MAX_DOCUMENT_BYTES} bytes`);
   }
 

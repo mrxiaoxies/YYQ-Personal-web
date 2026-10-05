@@ -4,7 +4,7 @@
 
 ## 项目状态
 
-- 当前版本：`0.5.1`
+- 当前版本：`0.5.2`
 - GitHub 仓库：`https://github.com/mrxiaoxies/YYQ-Personal-web`
 - 版本记录：见 [CHANGELOG.md](./CHANGELOG.md)
 - 操作文档：见 [docs/OPERATIONS.md](./docs/OPERATIONS.md)
@@ -12,7 +12,9 @@
 
 ## 本版更新
 
-`0.5.1` 汇总自 `0.4.1` 以来的项目进度、操作技能与 RAG + Wiki 更新：
+`0.5.2` 修复后台「合并近期项目与操作技能（2026.10）」在浏览器中的校验失败。共享校验器使用 `TextEncoder` 计算 UTF-8 大小，不再依赖 Node.js `Buffer`，原有内容大小与列表限制保持有效。
+
+此前 `0.5.1` 汇总自 `0.4.1` 以来的项目进度、操作技能与 RAG + Wiki 更新：
 
 - 项目详情与后台编辑器增加操作技能列表，支持排序、版本化保存和近期项目的幂等合并，保留管理员自定义内容。
 - 内置项目进度板更新为 11 个项目，新增钓鱼游戏、3D 户型建模、磁盘诊断和视频话术整理，并注明各项目待验证阶段。
@@ -149,7 +151,7 @@ npm run preview
 ```powershell
 git status
 git add .
-git commit -m "chore: release v0.5.1"
+git commit -m "chore: release v0.5.2"
 git push
 ```
 
